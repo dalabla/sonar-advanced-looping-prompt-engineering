@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Looping Prompt Engineering Console - Sonar Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .console-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            height: calc(100vh - 4rem);
+        }
+        @media (min-width: 1024px) {
+            .console-container {
+                grid-template-columns: 2.2fr 1fr;
+            }
+        }
+        .glass-pane {
+            background: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: #4338ca; }
+        .btn-primary:disabled { background-color: #3730a3; cursor: not-allowed; opacity: 0.7; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        .btn-secondary:hover:not(:disabled) { background-color: #374151; }
+        .btn-secondary:disabled { background-color: #374151; cursor: not-allowed; opacity: 0.6; }
+        .btn-icon { background-color: #374151; color: #d1d5db; padding: 0.4rem; }
+        .btn-icon:hover { background-color: #4b5563; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        /* For details/summary marker */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary .arrow { transform: rotate(90deg); }
+        .arrow { transition: transform 0.2s; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.875rem; color: #9ca3af; }
+    </style>
+</head>
+<body class="p-4 sm:p-6">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-white">Advanced Prompt Engineering Console - Sonar Edition</h1>
+            <p class="text-gray-400 mt-2">Iteratively refine prompts with real-time web search using Perplexity's Sonar models.</p>
+        </header>
+        <div class="console-container">
+            <!-- Left Panel: Configuration and Logs -->
+            <div class="glass-pane p-6 flex flex-col">
+                <h2 class="text-xl font-semibold text-white mb-4">Configuration</h2>
+                
+                <div class="mb-4">
+                    <label for="api-key" class="block text-sm font-medium text-red-400 mb-1">Perplexity API Key (Required)</label>
+                    <input type="password" id="api-key" placeholder="Enter your Perplexity API Key here" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-red-500 focus:border-red-500">
+                    <p class="text-xs text-gray-500 mt-1">
+                        Get your API key from <a href="https://docs.perplexity.ai" target="_blank" class="text-indigo-400 hover:underline">Perplexity Settings</a>.
+                    </p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="initial-prompt" class="block text-sm font-medium text-gray-300 mb-1">1. Initial Prompt</label>
+                        <textarea id="initial-prompt" rows="4" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500">Generate three taglines for a new brand of sparkling water.</textarea>
+                    </div>
+                    <div>
+                        <label for="goal" class="block text-sm font-medium text-gray-300 mb-1">2. Ultimate Goal</label>
+                        <textarea id="goal" rows="4" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500">The taglines should be catchy, under 10 words, and emphasize the natural, healthy aspects of the drink, appealing to a millennial audience.</textarea>
+                    </div>
+                </div>
+                
+                <details class="bg-gray-900/50 rounded-lg mb-4">
+                    <summary class="p-3 cursor-pointer flex justify-between items-center">
+                        <span class="font-semibold text-white">Advanced Settings</span>
+                        <svg class="arrow w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </summary>
+                    <div class="p-4 border-t border-gray-700 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        <div class="col-span-1 md:col-span-2">
+                            <label for="model-select" class="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                            <div class="flex items-center space-x-2">
+                                <select id="model-select" class="flex-grow w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <optgroup label="Search Models">
+                                        <option value="sonar">Sonar - Lightweight search</option>
+                                        <option value="sonar-pro" selected>Sonar Pro - Advanced search</option>
+                                    </optgroup>
+                                    <optgroup label="Reasoning Models">
+                                        <option value="sonar-reasoning">Sonar Reasoning - Fast reasoning</option>
+                                        <option value="sonar-reasoning-pro">Sonar Reasoning Pro - Premier reasoning</option>
+                                    </optgroup>
+                                    <optgroup label="Research Models">
+                                        <option value="sonar-deep-research">Sonar Deep Research - Exhaustive research</option>
+                                    </optgroup>
+                                </select>
+                                <button id="test-connection-btn" class="btn btn-secondary px-3" title="Test API connection for selected model">Test</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="iterations" class="block text-sm font-medium text-gray-300 mb-1">Iterations</label>
+                            <input type="number" id="iterations" value="3" min="1" max="10" class="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm">
+                        </div>
+                        <div>
+                            <label for="max-tokens" class="block text-sm font-medium text-gray-300 mb-1">Max Output Tokens</label>
+                            <input type="number" id="max-tokens" placeholder="e.g., 2048" class="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <div class="slider-label"><label for="temperature">Temperature (Creativity)</label><span id="temperature-value">0.9</span></div>
+                            <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.9" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="return-images" class="rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-sm text-gray-300">Include images in search results</span>
+                            </label>
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label for="search-recency" class="block text-sm font-medium text-gray-300 mb-1">Search Recency Filter</label>
+                            <select id="search-recency" class="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm">
+                                <option value="">No filter</option>
+                                <option value="hour">Past hour</option>
+                                <option value="day">Past day</option>
+                                <option value="week">Past week</option>
+                                <option value="month">Past month</option>
+                                <option value="year">Past year</option>
+                            </select>
+                        </div>
+                    </div>
+                </details>
+                <div class="flex items-center space-x-4 mb-6">
+                    <button id="start-btn" class="btn btn-primary w-28">Start Loop</button>
+                    <button id="stop-btn" class="btn btn-secondary w-28" disabled>Stop</button>
+                    <div id="status" class="flex items-center space-x-2 text-sm">
+                        <div id="loader" class="loader hidden"></div>
+                        <span id="status-text" class="text-gray-400">Ready. Enter API Key to begin.</span>
+                    </div>
+                </div>
+                
+                <h2 class="text-xl font-semibold text-white mb-4 border-t border-gray-700 pt-4">Iteration Log</h2>
+                <div id="log-container" class="flex-grow overflow-y-auto pr-2 space-y-4"></div>
+            </div>
+            <!-- Right Panel: Final Best Response -->
+            <div class="glass-pane p-6 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-white">Best Response</h2>
+                    <div id="final-response-actions" class="hidden space-x-2"></div>
+                </div>
+                <div id="final-response-container" class="flex-grow bg-gray-900 rounded-md p-4 overflow-y-auto">
+                    <p class="text-gray-500">The best synthesized response will appear here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // DOM Elements
+        const apiKeyEl = document.getElementById('api-key');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const testConnectionBtn = document.getElementById('test-connection-btn');
+        const initialPromptEl = document.getElementById('initial-prompt');
+        const goalEl = document.getElementById('goal');
+        const iterationsEl = document.getElementById('iterations');
+        const modelSelect = document.getElementById('model-select');
+        const temperatureSlider = document.getElementById('temperature');
+        const temperatureValue = document.getElementById('temperature-value');
+        const maxTokensEl = document.getElementById('max-tokens');
+        const returnImagesEl = document.getElementById('return-images');
+        const searchRecencyEl = document.getElementById('search-recency');
+        const logContainer = document.getElementById('log-container');
+        const finalResponseContainer = document.getElementById('final-response-container');
+        const finalResponseActions = document.getElementById('final-response-actions');
+        const statusText = document.getElementById('status-text');
+        const loader = document.getElementById('loader');
+        let isRunning = false;
+        let shouldStop = false;
+        const copyIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 3a1 1 0 011-1h8a1 1 0 011 1v8a1 1 0 01-1 1h-1v1a1 1 0 102 0V3a3 3 0 00-3-3H8a3 3 0 00-3 3v8a3 3 0 003 3h1v-1a1 1 0 10-2 0v1a1 1 0 102 0v-1a1 1 0 011-1h1V3zM3 8a1 1 0 011-1h8a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V8z"/></svg>`;
+        const downloadIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>`;
+        
+        // --- API Communication ---
+        async function callSonarAPI(apiKey, prompt, systemPrompt = null, isTest = false) {
+            const selectedModel = modelSelect.value;
+            const apiUrl = `https://api.perplexity.ai/chat/completions`;
+            // Build messages array
+            const messages = [];
+            if (systemPrompt && systemPrompt.trim()) {
+                messages.push({ role: 'system', content: systemPrompt });
+            }
+            messages.push({ role: 'user', content: prompt });
+            const payload = {
+                model: selectedModel,
+                messages: messages,
+                temperature: parseFloat(temperatureSlider.value),
+            };
+            // Add optional parameters
+            if (!isTest && maxTokensEl.value) {
+                payload.max_tokens = parseInt(maxTokensEl.value);
+            }
+            // Add Sonar-specific parameters
+            if (returnImagesEl.checked) {
+                payload.return_images = true;
+            }
+            if (searchRecencyEl.value) {
+                payload.search_recency_filter = searchRecencyEl.value;
+            }
+            const payloadString = JSON.stringify(payload, null, 2);
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: payloadString
+                });
+                
+                const result = await response.json();
+                if (!response.ok) {
+                    const errorMsg = result?.error?.message || `API failed with status: ${response.status}`;
+                    throw new Error(errorMsg);
+                }
+                
+                const text = result.choices?.[0]?.message?.content;
+                
+                if (!text) {
+                    console.error("Invalid API response structure:", JSON.stringify(result, null, 2));
+                    throw new Error("Received an empty or invalid response from the API.");
+                }
+                return { text, payloadString, searchResults: result.search_results || [] };
+            } catch (error) {
+                console.error("Sonar API Error:", error);
+                return { error: error.message, payloadString };
+            }
+        }
+        
+        // --- Core Logic ---
+        function checkApiKey() {
+            const apiKey = apiKeyEl.value.trim();
+            if (!apiKey) {
+                updateStatus('❌ Error: API Key is required.');
+                apiKeyEl.focus();
+                apiKeyEl.classList.add('border-red-500');
+                return null;
+            }
+            apiKeyEl.classList.remove('border-red-500');
+            return apiKey;
+        }
+        async function testConnection() {
+            if (isRunning) return;
+            const apiKey = checkApiKey();
+            if (!apiKey) return;
+            updateStatus('Testing connection...');
+            loader.classList.remove('hidden');
+            testConnectionBtn.disabled = true;
+            const { text, error } = await callSonarAPI(apiKey, "Hello, this is a test.", null, true);
+            if (error) {
+                updateStatus(`❌ Connection failed: ${error}`);
+                finalResponseContainer.innerHTML = `<p class="text-red-400">Connection Test Failed: ${escapeHtml(error)}</p>`;
+            } else {
+                updateStatus(`✅ Connection successful!`);
+                finalResponseContainer.innerHTML = `<p class="text-green-400">Connection Test Successful! Received response: "${escapeHtml(text.trim())}"</p>`;
+            }
+            loader.classList.add('hidden');
+            testConnectionBtn.disabled = false;
+        }
+        async function startLoop() {
+            if (isRunning) return;
+            const apiKey = checkApiKey();
+            if (!apiKey) return;
+            
+            const initialPrompt = initialPromptEl.value.trim();
+            const goal = goalEl.value.trim();
+            if (!initialPrompt || !goal) {
+                finalResponseContainer.innerHTML = `<p class="text-red-400">Error: Please provide an Initial Prompt and a Goal.</p>`;
+                return;
+            }
+            isRunning = true;
+            shouldStop = false;
+            let conversationHistory = [];
+            logContainer.innerHTML = '';
+            finalResponseContainer.innerHTML = '<p class="text-gray-500">Initializing loop...</p>';
+            finalResponseActions.classList.add('hidden');
+            updateUIState(true);
+            let currentPrompt = initialPrompt;
+            for (let i = 0; i < parseInt(iterationsEl.value); i++) {
+                if (shouldStop) { updateStatus('Process stopped.'); break; }
+                
+                const iterationNum = i + 1;
+                updateStatus(`Iteration ${iterationNum}: Sending prompt...`);
+                
+                const { text: response, payloadString, searchResults = [], error } = await callSonarAPI(apiKey, currentPrompt);
+                
+                if (shouldStop) break;
+                if (error) {
+                    addLogEntry(iterationNum, currentPrompt, `API ERROR: ${error}`, payloadString, true);
+                    updateStatus(`Error in iteration ${iterationNum}. Stopping.`);
+                    break;
+                }
+                addLogEntry(iterationNum, currentPrompt, response, payloadString, false, searchResults);
+                conversationHistory.push({ role: 'user', prompt: currentPrompt }, { role: 'model', response: response });
+                if (i < parseInt(iterationsEl.value) - 1) {
+                    updateStatus(`Iteration ${iterationNum}: Refining prompt...`);
+                    const historyText = conversationHistory.map(turn => `${turn.role === 'user' ? 'Prompt' : 'Response'}:\n${turn.role === 'user' ? turn.prompt : turn.response}`).join('\n\n---\n\n');
+                    const { text: newPrompt, error: refineError } = await refinePrompt(apiKey, goal, historyText);
+                    if (refineError) {
+                         updateStatus(`Error while refining prompt. Stopping.`);
+                         break;
+                    }
+                    currentPrompt = newPrompt;
+                }
+            }
+            if (!shouldStop && conversationHistory.length > 0) {
+                const historyText = conversationHistory.map(turn => `${turn.role === 'user' ? 'Prompt' : 'Response'}:\n${turn.role === 'user' ? turn.prompt : turn.response}`).join('\n\n---\n\n');
+                await determineBestResponse(apiKey, goal, historyText);
+            } else if (!shouldStop) {
+                updateStatus('Loop finished, but no responses to analyze.');
+            }
+            isRunning = false;
+            updateUIState(false);
+        }
+        async function refinePrompt(apiKey, goal, history) {
+            const systemPrompt = `You are a world-class Prompt Engineering expert. Your task is to analyze conversation history and create an improved prompt that will better achieve the user's ultimate goal. Focus on:
+1. Identifying gaps in previous responses
+2. Refining the approach based on what has worked
+3. Making the prompt more specific and actionable
+4. Building on successful elements from the conversation
+Return ONLY the refined prompt text, nothing else.`;
+            
+            const userPromptForRefinement = `**User's Goal:**\n${goal}\n\n**Conversation History:**\n${history}\n\n**Your Task:**\nCreate the next, better prompt that will help achieve the user's goal more effectively. Consider what has worked well and what needs improvement.`;
+            
+            const { text, error } = await callSonarAPI(apiKey, userPromptForRefinement, systemPrompt);
+            return { text: text?.trim(), error };
+        }
+        
+        async function determineBestResponse(apiKey, goal, history) {
+            updateStatus('Synthesizing best response...');
+            
+            const systemPrompt = `You are an expert AI assistant specializing in analysis and synthesis. Your task is to analyze the conversation history and provide the single best response that achieves the user's goal most effectively.
+Review all the responses in the history and create a synthesized answer that combines the best elements from each iteration. Focus on:
+1. Quality and accuracy of the content
+2. How well it meets the specified goal
+3. Clarity and usefulness of the response
+4. Completeness of the answer
+Return the best possible response, incorporating insights from all iterations.`;
+            
+            const userPromptForFinalizing = `**User's Goal:**\n${goal}\n\n**Full Conversation History:**\n${history}\n\n**Your Task:**\nProvide the single best response that achieves the user's goal most effectively, synthesizing insights from all the iterations above.`;
+            const { text: finalResponse, error } = await callSonarAPI(apiKey, userPromptForFinalizing, systemPrompt);
+            
+            if (error) {
+                finalResponseContainer.innerHTML = `<div class="whitespace-pre-wrap text-red-400">Error synthesizing response: ${escapeHtml(error)}</div>`;
+                updateStatus('Error during final synthesis.');
+                return;
+            }
+            finalResponseContainer.innerHTML = `<div class="whitespace-pre-wrap">${escapeHtml(finalResponse)}</div>`;
+            finalResponseActions.innerHTML = '';
+            finalResponseActions.appendChild(createActions('final', finalResponse));
+            finalResponseActions.classList.remove('hidden');
+            updateStatus('Process complete.');
+        }
+        // --- UI & Utility Functions ---
+        function stopLoop() {
+            if (isRunning) { shouldStop = true; updateStatus('Stopping...'); }
+        }
+        function createActions(id, content) {
+            const container = document.createElement('div');
+            container.className = 'space-x-2';
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'btn btn-icon';
+            copyBtn.innerHTML = copyIcon;
+            copyBtn.title = 'Copy to clipboard';
+            copyBtn.onclick = () => copyToClipboard(content, copyBtn);
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'btn btn-icon';
+            downloadBtn.innerHTML = downloadIcon;
+            downloadBtn.title = 'Download as .txt file';
+            downloadBtn.onclick = () => downloadText(content, `${id}.txt`);
+            container.appendChild(copyBtn);
+            container.appendChild(downloadBtn);
+            return container;
+        }
+        function addLogEntry(iteration, prompt, response, payload, isError = false, searchResults = []) {
+            const id = `iteration-${iteration}`;
+            const logEntry = document.createElement('div');
+            logEntry.className = `p-4 bg-gray-900/50 rounded-lg text-sm ${isError ? 'border border-red-500/50' : ''}`;
+            const responseColor = isError ? 'text-red-400' : 'text-gray-300';
+            
+            let searchResultsHtml = '';
+            if (searchResults && searchResults.length > 0) {
+                searchResultsHtml = `
+                    <div class="mb-3">
+                        <p class="font-medium text-gray-400 mb-1">Search Results (${searchResults.length} sources):</p>
+                        <div class="p-2 bg-gray-800 rounded text-xs text-gray-400 space-y-1">
+                            ${searchResults.slice(0, 3).map(result => `<div>• ${result.title} (${result.url})</div>`).join('')}
+                            ${searchResults.length > 3 ? `<div>... and ${searchResults.length - 3} more sources</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            logEntry.innerHTML = `
+                <h3 class="font-semibold text-indigo-400 mb-2">Iteration ${iteration}</h3>
+                <div class="mb-3">
+                    <div class="flex justify-between items-center mb-1"><p class="font-medium text-gray-400">Sent Prompt:</p><div id="${id}-prompt-actions"></div></div>
+                    <p class="p-2 bg-gray-800 rounded text-gray-300 whitespace-pre-wrap">${escapeHtml(prompt)}</p>
+                </div>
+                <div class="mb-3">
+                    <div class="flex justify-between items-center mb-1"><p class="font-medium text-gray-400">Received Response:</p><div id="${id}-response-actions"></div></div>
+                    <div class="p-2 bg-gray-800 rounded ${responseColor} whitespace-pre-wrap">${escapeHtml(response)}</div>
+                </div>
+                ${searchResultsHtml}
+                <details class="mt-2">
+                    <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-300">Show API Payload</summary>
+                    <div class="mt-2">
+                        <div class="flex justify-between items-center mb-1"><p class="font-medium text-gray-400 text-xs">Request Payload:</p><div id="${id}-payload-actions"></div></div>
+                        <pre class="p-2 bg-black/50 rounded text-xs text-gray-300 whitespace-pre-wrap overflow-x-auto">${escapeHtml(payload)}</pre>
+                    </div>
+                </details>
+            `;
+            logContainer.appendChild(logEntry);
+            logEntry.querySelector(`#${id}-prompt-actions`).appendChild(createActions(`${id}-prompt`, prompt));
+            logEntry.querySelector(`#${id}-response-actions`).appendChild(createActions(`${id}-response`, response));
+            logEntry.querySelector(`#${id}-payload-actions`).appendChild(createActions(`${id}-payload`, payload));
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        function updateUIState(running) {
+            isRunning = running;
+            startBtn.disabled = running;
+            stopBtn.disabled = !running;
+            testConnectionBtn.disabled = running;
+            apiKeyEl.disabled = running;
+            document.querySelectorAll('#initial-prompt, #goal, #iterations, #model-select, #temperature, #max-tokens, #return-images, #search-recency').forEach(el => el.disabled = running);
+            loader.classList.toggle('hidden', !running);
+        }
+        
+        function updateStatus(text) { statusText.textContent = text; }
+        function escapeHtml(unsafe) { return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "'"); }
+        function copyToClipboard(text, button) {
+             try {
+                const textArea = document.createElement("textarea");
+                textArea.value = text;
+                textArea.style.position = "fixed";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                const originalContent = button.innerHTML;
+                button.innerHTML = 'Copied!';
+                setTimeout(() => { button.innerHTML = originalContent; }, 2000);
+            } catch (err) { console.error('Fallback copy failed', err); }
+        }
+        function downloadText(text, filename) {
+            const a = document.createElement('a');
+            a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+            a.setAttribute('download', filename);
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', startLoop);
+        stopBtn.addEventListener('click', stopLoop);
+        testConnectionBtn.addEventListener('click', testConnection);
+        temperatureSlider.addEventListener('input', (e) => temperatureValue.textContent = e.target.value);
+    </script>
+</body>
+</html>
