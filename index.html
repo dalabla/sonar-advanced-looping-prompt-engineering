@@ -82,9 +82,15 @@
                 
                 <div class="mb-4">
                     <label for="api-key" class="block text-sm font-medium text-red-400 mb-1">Perplexity API Key (Required)</label>
-                    <input type="password" id="api-key" placeholder="Enter your Perplexity API Key here" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-red-500 focus:border-red-500">
+                    <div class="flex space-x-2">
+                        <input type="password" id="api-key" placeholder="Enter your Perplexity API Key here" class="flex-grow bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-red-500 focus:border-red-500">
+                        <button id="toggle-save-key" class="btn btn-secondary px-3 text-xs" title="Toggle API key persistence">
+                            <span id="save-key-icon">💾</span>
+                        </button>
+                    </div>
                     <p class="text-xs text-gray-500 mt-1">
                         Get your API key from <a href="https://docs.perplexity.ai" target="_blank" class="text-indigo-400 hover:underline">Perplexity Settings</a>.
+                        <span id="save-key-status" class="text-yellow-400"></span>
                     </p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -152,8 +158,50 @@
                                 <option value="year">Past year</option>
                             </select>
                         </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="retry-on-error" checked class="rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-sm text-gray-300">Auto-retry on API errors (max 3 attempts)</span>
+                            </label>
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="continue-on-error" class="rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-sm text-gray-300">Continue loop on errors</span>
+                            </label>
+                        </div>
                     </div>
                 </details>
+                <div class="mb-4">
+                    <details class="bg-gray-900/50 rounded-lg">
+                        <summary class="p-3 cursor-pointer flex justify-between items-center">
+                            <span class="font-semibold text-white">Token Usage & Cost Tracking</span>
+                            <svg class="arrow w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700">
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div class="bg-gray-800 p-2 rounded">
+                                    <div class="text-gray-400 text-xs">Total Tokens</div>
+                                    <div class="text-white font-semibold" id="total-tokens">0</div>
+                                </div>
+                                <div class="bg-gray-800 p-2 rounded">
+                                    <div class="text-gray-400 text-xs">Est. Cost (USD)</div>
+                                    <div class="text-green-400 font-semibold" id="total-cost">$0.00</div>
+                                </div>
+                                <div class="bg-gray-800 p-2 rounded">
+                                    <div class="text-gray-400 text-xs">Input Tokens</div>
+                                    <div class="text-blue-400 font-semibold" id="input-tokens">0</div>
+                                </div>
+                                <div class="bg-gray-800 p-2 rounded">
+                                    <div class="text-gray-400 text-xs">Output Tokens</div>
+                                    <div class="text-purple-400 font-semibold" id="output-tokens">0</div>
+                                </div>
+                            </div>
+                            <button id="reset-stats" class="btn btn-secondary text-xs mt-3 w-full">Reset Statistics</button>
+                        </div>
+                    </details>
+                </div>
+
                 <div class="flex items-center space-x-4 mb-6">
                     <button id="start-btn" class="btn btn-primary w-28">Start Loop</button>
                     <button id="stop-btn" class="btn btn-secondary w-28" disabled>Stop</button>
@@ -162,18 +210,28 @@
                         <span id="status-text" class="text-gray-400">Ready. Enter API Key to begin.</span>
                     </div>
                 </div>
+
+                <div class="flex items-center space-x-2 mb-4">
+                    <button id="export-session-btn" class="btn btn-secondary text-xs flex-1">📥 Export Session</button>
+                    <button id="import-session-btn" class="btn btn-secondary text-xs flex-1">📤 Import Session</button>
+                    <input type="file" id="import-file-input" accept=".json" class="hidden">
+                    <button id="compare-toggle-btn" class="btn btn-secondary text-xs flex-1">📊 Compare</button>
+                </div>
                 
                 <h2 class="text-xl font-semibold text-white mb-4 border-t border-gray-700 pt-4">Iteration Log</h2>
                 <div id="log-container" class="flex-grow overflow-y-auto pr-2 space-y-4"></div>
             </div>
-            <!-- Right Panel: Final Best Response -->
+            <!-- Right Panel: Final Best Response / Compare View -->
             <div class="glass-pane p-6 flex flex-col">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-white">Best Response</h2>
+                    <h2 class="text-xl font-semibold text-white" id="right-panel-title">Best Response</h2>
                     <div id="final-response-actions" class="hidden space-x-2"></div>
                 </div>
                 <div id="final-response-container" class="flex-grow bg-gray-900 rounded-md p-4 overflow-y-auto">
                     <p class="text-gray-500">The best synthesized response will appear here.</p>
+                </div>
+                <div id="compare-container" class="hidden flex-grow bg-gray-900 rounded-md p-4 overflow-y-auto">
+                    <p class="text-gray-500">Run iterations to see comparison view.</p>
                 </div>
             </div>
         </div>
@@ -184,6 +242,9 @@
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
         const testConnectionBtn = document.getElementById('test-connection-btn');
+        const toggleSaveKeyBtn = document.getElementById('toggle-save-key');
+        const saveKeyIcon = document.getElementById('save-key-icon');
+        const saveKeyStatus = document.getElementById('save-key-status');
         const initialPromptEl = document.getElementById('initial-prompt');
         const goalEl = document.getElementById('goal');
         const iterationsEl = document.getElementById('iterations');
@@ -193,20 +254,274 @@
         const maxTokensEl = document.getElementById('max-tokens');
         const returnImagesEl = document.getElementById('return-images');
         const searchRecencyEl = document.getElementById('search-recency');
+        const retryOnErrorEl = document.getElementById('retry-on-error');
+        const continueOnErrorEl = document.getElementById('continue-on-error');
         const logContainer = document.getElementById('log-container');
         const finalResponseContainer = document.getElementById('final-response-container');
+        const compareContainer = document.getElementById('compare-container');
+        const rightPanelTitle = document.getElementById('right-panel-title');
         const finalResponseActions = document.getElementById('final-response-actions');
         const statusText = document.getElementById('status-text');
         const loader = document.getElementById('loader');
+        const totalTokensEl = document.getElementById('total-tokens');
+        const totalCostEl = document.getElementById('total-cost');
+        const inputTokensEl = document.getElementById('input-tokens');
+        const outputTokensEl = document.getElementById('output-tokens');
+        const resetStatsBtn = document.getElementById('reset-stats');
+        const exportSessionBtn = document.getElementById('export-session-btn');
+        const importSessionBtn = document.getElementById('import-session-btn');
+        const importFileInput = document.getElementById('import-file-input');
+        const compareToggleBtn = document.getElementById('compare-toggle-btn');
+
         let isRunning = false;
         let shouldStop = false;
+        let iterationResponses = [];
+
+        // Token tracking
+        let tokenStats = {
+            totalTokens: 0,
+            inputTokens: 0,
+            outputTokens: 0,
+            estimatedCost: 0
+        };
         const copyIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 3a1 1 0 011-1h8a1 1 0 011 1v8a1 1 0 01-1 1h-1v1a1 1 0 102 0V3a3 3 0 00-3-3H8a3 3 0 00-3 3v8a3 3 0 003 3h1v-1a1 1 0 10-2 0v1a1 1 0 102 0v-1a1 1 0 011-1h1V3zM3 8a1 1 0 011-1h8a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V8z"/></svg>`;
         const downloadIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>`;
-        
+
+        // --- Configuration Persistence ---
+        function loadSettings() {
+            const saved = localStorage.getItem('sonar-console-settings');
+            if (saved) {
+                try {
+                    const settings = JSON.parse(saved);
+                    if (settings.apiKey) {
+                        apiKeyEl.value = settings.apiKey;
+                        saveKeyStatus.textContent = '(Saved)';
+                        saveKeyIcon.textContent = '🔓';
+                    }
+                    if (settings.initialPrompt) initialPromptEl.value = settings.initialPrompt;
+                    if (settings.goal) goalEl.value = settings.goal;
+                    if (settings.iterations) iterationsEl.value = settings.iterations;
+                    if (settings.model) modelSelect.value = settings.model;
+                    if (settings.temperature !== undefined) {
+                        temperatureSlider.value = settings.temperature;
+                        temperatureValue.textContent = settings.temperature;
+                    }
+                    if (settings.maxTokens) maxTokensEl.value = settings.maxTokens;
+                    if (settings.returnImages !== undefined) returnImagesEl.checked = settings.returnImages;
+                    if (settings.searchRecency) searchRecencyEl.value = settings.searchRecency;
+                    if (settings.retryOnError !== undefined) retryOnErrorEl.checked = settings.retryOnError;
+                    if (settings.continueOnError !== undefined) continueOnErrorEl.checked = settings.continueOnError;
+                } catch (e) {
+                    console.error('Failed to load settings:', e);
+                }
+            }
+            // Load token stats
+            const savedStats = localStorage.getItem('sonar-console-stats');
+            if (savedStats) {
+                try {
+                    tokenStats = JSON.parse(savedStats);
+                    updateTokenDisplay();
+                } catch (e) {
+                    console.error('Failed to load stats:', e);
+                }
+            }
+        }
+
+        function saveSettings() {
+            const settings = {
+                apiKey: localStorage.getItem('sonar-console-save-key') ? apiKeyEl.value : '',
+                initialPrompt: initialPromptEl.value,
+                goal: goalEl.value,
+                iterations: iterationsEl.value,
+                model: modelSelect.value,
+                temperature: parseFloat(temperatureSlider.value),
+                maxTokens: maxTokensEl.value,
+                returnImages: returnImagesEl.checked,
+                searchRecency: searchRecencyEl.value,
+                retryOnError: retryOnErrorEl.checked,
+                continueOnError: continueOnErrorEl.checked
+            };
+            localStorage.setItem('sonar-console-settings', JSON.stringify(settings));
+            localStorage.setItem('sonar-console-stats', JSON.stringify(tokenStats));
+        }
+
+        function toggleSaveKey() {
+            const isSaved = localStorage.getItem('sonar-console-save-key');
+            if (isSaved) {
+                localStorage.removeItem('sonar-console-save-key');
+                saveKeyStatus.textContent = '';
+                saveKeyIcon.textContent = '💾';
+                updateStatus('API key will not be saved');
+            } else {
+                localStorage.setItem('sonar-console-save-key', 'true');
+                saveKeyStatus.textContent = '(Saved)';
+                saveKeyIcon.textContent = '🔓';
+                updateStatus('API key will be saved in browser');
+            }
+            saveSettings();
+        }
+
+        // --- Token Cost Calculation ---
+        function calculateCost(model, inputTokens, outputTokens) {
+            // Pricing based on research (per 1M tokens)
+            const pricing = {
+                'sonar': { input: 1.0, output: 1.0, request: 0.005 },
+                'sonar-pro': { input: 3.0, output: 15.0, request: 0.005 },
+                'sonar-reasoning': { input: 1.0, output: 5.0, request: 0.005 },
+                'sonar-reasoning-pro': { input: 3.0, output: 15.0, request: 0.005 },
+                'sonar-deep-research': { input: 3.0, output: 15.0, request: 0.005 }
+            };
+            const modelPricing = pricing[model] || pricing['sonar'];
+            const inputCost = (inputTokens / 1000000) * modelPricing.input;
+            const outputCost = (outputTokens / 1000000) * modelPricing.output;
+            const requestCost = modelPricing.request;
+            return inputCost + outputCost + requestCost;
+        }
+
+        function updateTokenStats(usage, model) {
+            if (usage) {
+                const input = usage.prompt_tokens || 0;
+                const output = usage.completion_tokens || 0;
+                const total = usage.total_tokens || (input + output);
+
+                tokenStats.inputTokens += input;
+                tokenStats.outputTokens += output;
+                tokenStats.totalTokens += total;
+                tokenStats.estimatedCost += calculateCost(model, input, output);
+
+                updateTokenDisplay();
+                saveSettings();
+            }
+        }
+
+        function updateTokenDisplay() {
+            totalTokensEl.textContent = tokenStats.totalTokens.toLocaleString();
+            inputTokensEl.textContent = tokenStats.inputTokens.toLocaleString();
+            outputTokensEl.textContent = tokenStats.outputTokens.toLocaleString();
+            totalCostEl.textContent = '$' + tokenStats.estimatedCost.toFixed(4);
+        }
+
+        function resetStats() {
+            if (confirm('Reset all token usage statistics?')) {
+                tokenStats = { totalTokens: 0, inputTokens: 0, outputTokens: 0, estimatedCost: 0 };
+                updateTokenDisplay();
+                saveSettings();
+                updateStatus('Statistics reset');
+            }
+        }
+
+        // --- Export/Import ---
+        function exportSession() {
+            const session = {
+                timestamp: new Date().toISOString(),
+                settings: {
+                    initialPrompt: initialPromptEl.value,
+                    goal: goalEl.value,
+                    iterations: iterationsEl.value,
+                    model: modelSelect.value,
+                    temperature: parseFloat(temperatureSlider.value)
+                },
+                iterations: iterationResponses,
+                tokenStats: tokenStats
+            };
+            const blob = new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sonar-session-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            updateStatus('Session exported');
+        }
+
+        function importSession() {
+            importFileInput.click();
+        }
+
+        function handleImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const session = JSON.parse(e.target.result);
+                    if (session.settings) {
+                        initialPromptEl.value = session.settings.initialPrompt || '';
+                        goalEl.value = session.settings.goal || '';
+                        iterationsEl.value = session.settings.iterations || 3;
+                        modelSelect.value = session.settings.model || 'sonar-pro';
+                        temperatureSlider.value = session.settings.temperature || 0.9;
+                        temperatureValue.textContent = temperatureSlider.value;
+                    }
+                    if (session.iterations) {
+                        iterationResponses = session.iterations;
+                        logContainer.innerHTML = '';
+                        session.iterations.forEach((iter, idx) => {
+                            addLogEntry(idx + 1, iter.prompt, iter.response, JSON.stringify(iter.payload, null, 2), false, iter.searchResults || []);
+                        });
+                    }
+                    if (session.tokenStats) {
+                        tokenStats = session.tokenStats;
+                        updateTokenDisplay();
+                    }
+                    updateStatus('Session imported successfully');
+                    saveSettings();
+                } catch (error) {
+                    updateStatus('Error importing session: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // --- Comparison View ---
+        function toggleCompareView() {
+            const isCompareVisible = !compareContainer.classList.contains('hidden');
+            if (isCompareVisible) {
+                // Switch to Best Response
+                compareContainer.classList.add('hidden');
+                finalResponseContainer.classList.remove('hidden');
+                rightPanelTitle.textContent = 'Best Response';
+                compareToggleBtn.textContent = '📊 Compare';
+            } else {
+                // Switch to Compare
+                if (iterationResponses.length < 2) {
+                    updateStatus('Need at least 2 iterations to compare');
+                    return;
+                }
+                finalResponseContainer.classList.add('hidden');
+                compareContainer.classList.remove('hidden');
+                rightPanelTitle.textContent = 'Iteration Comparison';
+                compareToggleBtn.textContent = '📝 Best Response';
+                renderComparisonView();
+            }
+        }
+
+        function renderComparisonView() {
+            compareContainer.innerHTML = '<div class="space-y-4">';
+            iterationResponses.forEach((iter, idx) => {
+                const wordCount = iter.response.split(/\s+/).length;
+                const div = document.createElement('div');
+                div.className = 'p-3 bg-gray-800 rounded-lg border border-gray-700';
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold text-indigo-400">Iteration ${idx + 1}</span>
+                        <span class="text-xs text-gray-500">${wordCount} words</span>
+                    </div>
+                    <div class="text-sm text-gray-300 whitespace-pre-wrap max-h-32 overflow-y-auto">${escapeHtml(iter.response.substring(0, 300))}${iter.response.length > 300 ? '...' : ''}</div>
+                `;
+                compareContainer.appendChild(div);
+            });
+            compareContainer.innerHTML += '</div>';
+        }
+
         // --- API Communication ---
-        async function callSonarAPI(apiKey, prompt, systemPrompt = null, isTest = false) {
+        async function callSonarAPI(apiKey, prompt, systemPrompt = null, isTest = false, retryCount = 0) {
             const selectedModel = modelSelect.value;
             const apiUrl = `https://api.perplexity.ai/chat/completions`;
+            const maxRetries = retryOnErrorEl.checked ? 3 : 1;
+
             // Build messages array
             const messages = [];
             if (systemPrompt && systemPrompt.trim()) {
@@ -230,31 +545,47 @@
                 payload.search_recency_filter = searchRecencyEl.value;
             }
             const payloadString = JSON.stringify(payload, null, 2);
+
             try {
                 const response = await fetch(apiUrl, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Authorization': `Bearer ${apiKey}`,
                         'Content-Type': 'application/json'
                     },
                     body: payloadString
                 });
-                
+
                 const result = await response.json();
                 if (!response.ok) {
                     const errorMsg = result?.error?.message || `API failed with status: ${response.status}`;
                     throw new Error(errorMsg);
                 }
-                
+
                 const text = result.choices?.[0]?.message?.content;
-                
+
                 if (!text) {
                     console.error("Invalid API response structure:", JSON.stringify(result, null, 2));
                     throw new Error("Received an empty or invalid response from the API.");
                 }
-                return { text, payloadString, searchResults: result.search_results || [] };
+
+                // Update token stats
+                if (result.usage && !isTest) {
+                    updateTokenStats(result.usage, selectedModel);
+                }
+
+                return { text, payloadString, searchResults: result.search_results || [], usage: result.usage };
             } catch (error) {
                 console.error("Sonar API Error:", error);
+
+                // Retry logic
+                if (retryCount < maxRetries - 1 && retryOnErrorEl.checked) {
+                    const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+                    updateStatus(`API error. Retrying in ${delay/1000}s... (Attempt ${retryCount + 2}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return callSonarAPI(apiKey, prompt, systemPrompt, isTest, retryCount + 1);
+                }
+
                 return { error: error.message, payloadString };
             }
         }
@@ -293,7 +624,7 @@
             if (isRunning) return;
             const apiKey = checkApiKey();
             if (!apiKey) return;
-            
+
             const initialPrompt = initialPromptEl.value.trim();
             const goal = goalEl.value.trim();
             if (!initialPrompt || !goal) {
@@ -303,36 +634,59 @@
             isRunning = true;
             shouldStop = false;
             let conversationHistory = [];
+            iterationResponses = [];
             logContainer.innerHTML = '';
             finalResponseContainer.innerHTML = '<p class="text-gray-500">Initializing loop...</p>';
             finalResponseActions.classList.add('hidden');
             updateUIState(true);
+            saveSettings(); // Save settings before starting
+
             let currentPrompt = initialPrompt;
             for (let i = 0; i < parseInt(iterationsEl.value); i++) {
                 if (shouldStop) { updateStatus('Process stopped.'); break; }
-                
+
                 const iterationNum = i + 1;
                 updateStatus(`Iteration ${iterationNum}: Sending prompt...`);
-                
-                const { text: response, payloadString, searchResults = [], error } = await callSonarAPI(apiKey, currentPrompt);
-                
+
+                const { text: response, payloadString, searchResults = [], error, usage } = await callSonarAPI(apiKey, currentPrompt);
+
                 if (shouldStop) break;
                 if (error) {
                     addLogEntry(iterationNum, currentPrompt, `API ERROR: ${error}`, payloadString, true);
-                    updateStatus(`Error in iteration ${iterationNum}. Stopping.`);
-                    break;
+                    if (continueOnErrorEl.checked) {
+                        updateStatus(`Error in iteration ${iterationNum}. Continuing...`);
+                        continue;
+                    } else {
+                        updateStatus(`Error in iteration ${iterationNum}. Stopping.`);
+                        break;
+                    }
                 }
+
                 addLogEntry(iterationNum, currentPrompt, response, payloadString, false, searchResults);
                 conversationHistory.push({ role: 'user', prompt: currentPrompt }, { role: 'model', response: response });
+                iterationResponses.push({
+                    iteration: iterationNum,
+                    prompt: currentPrompt,
+                    response: response,
+                    searchResults: searchResults,
+                    payload: JSON.parse(payloadString),
+                    usage: usage
+                });
+
                 if (i < parseInt(iterationsEl.value) - 1) {
                     updateStatus(`Iteration ${iterationNum}: Refining prompt...`);
                     const historyText = conversationHistory.map(turn => `${turn.role === 'user' ? 'Prompt' : 'Response'}:\n${turn.role === 'user' ? turn.prompt : turn.response}`).join('\n\n---\n\n');
                     const { text: newPrompt, error: refineError } = await refinePrompt(apiKey, goal, historyText);
                     if (refineError) {
-                         updateStatus(`Error while refining prompt. Stopping.`);
-                         break;
+                        if (continueOnErrorEl.checked) {
+                            updateStatus(`Error while refining prompt. Using previous prompt.`);
+                        } else {
+                            updateStatus(`Error while refining prompt. Stopping.`);
+                            break;
+                        }
+                    } else {
+                        currentPrompt = newPrompt;
                     }
-                    currentPrompt = newPrompt;
                 }
             }
             if (!shouldStop && conversationHistory.length > 0) {
@@ -343,6 +697,7 @@
             }
             isRunning = false;
             updateUIState(false);
+            saveSettings(); // Save updated stats
         }
         async function refinePrompt(apiKey, goal, history) {
             const systemPrompt = `You are a world-class Prompt Engineering expert. Your task is to analyze conversation history and create an improved prompt that will better achieve the user's ultimate goal. Focus on:
@@ -454,7 +809,10 @@ Return the best possible response, incorporating insights from all iterations.`;
             stopBtn.disabled = !running;
             testConnectionBtn.disabled = running;
             apiKeyEl.disabled = running;
-            document.querySelectorAll('#initial-prompt, #goal, #iterations, #model-select, #temperature, #max-tokens, #return-images, #search-recency').forEach(el => el.disabled = running);
+            toggleSaveKeyBtn.disabled = running;
+            exportSessionBtn.disabled = running;
+            importSessionBtn.disabled = running;
+            document.querySelectorAll('#initial-prompt, #goal, #iterations, #model-select, #temperature, #max-tokens, #return-images, #search-recency, #retry-on-error, #continue-on-error').forEach(el => el.disabled = running);
             loader.classList.toggle('hidden', !running);
         }
         
@@ -488,7 +846,24 @@ Return the best possible response, incorporating insights from all iterations.`;
         startBtn.addEventListener('click', startLoop);
         stopBtn.addEventListener('click', stopLoop);
         testConnectionBtn.addEventListener('click', testConnection);
+        toggleSaveKeyBtn.addEventListener('click', toggleSaveKey);
+        resetStatsBtn.addEventListener('click', resetStats);
+        exportSessionBtn.addEventListener('click', exportSession);
+        importSessionBtn.addEventListener('click', importSession);
+        importFileInput.addEventListener('change', handleImportFile);
+        compareToggleBtn.addEventListener('click', toggleCompareView);
         temperatureSlider.addEventListener('input', (e) => temperatureValue.textContent = e.target.value);
+
+        // Auto-save settings on change
+        [apiKeyEl, initialPromptEl, goalEl, iterationsEl, modelSelect, temperatureSlider, maxTokensEl, returnImagesEl, searchRecencyEl, retryOnErrorEl, continueOnErrorEl].forEach(el => {
+            el.addEventListener('change', saveSettings);
+            if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                el.addEventListener('blur', saveSettings);
+            }
+        });
+
+        // Load settings on page load
+        window.addEventListener('DOMContentLoaded', loadSettings);
     </script>
 </body>
 </html>
