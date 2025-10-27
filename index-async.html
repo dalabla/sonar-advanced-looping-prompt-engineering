@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Async Parallel Prompt Engineering Console - Sonar Deep Research</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .console-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            height: calc(100vh - 4rem);
+        }
+        @media (min-width: 1024px) {
+            .console-container {
+                grid-template-columns: 1.5fr 2fr;
+            }
+        }
+        .glass-pane {
+            background: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: #4338ca; }
+        .btn-primary:disabled { background-color: #3730a3; cursor: not-allowed; opacity: 0.7; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        .btn-secondary:hover:not(:disabled) { background-color: #374151; }
+        .btn-secondary:disabled { background-color: #374151; cursor: not-allowed; opacity: 0.6; }
+        .btn-icon { background-color: #374151; color: #d1d5db; padding: 0.4rem; }
+        .btn-icon:hover { background-color: #4b5563; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary .arrow { transform: rotate(90deg); }
+        .arrow { transition: transform 0.2s; }
+        .status-pending { color: #fbbf24; }
+        .status-processing { color: #3b82f6; }
+        .status-completed { color: #10b981; }
+        .status-failed { color: #ef4444; }
+        .job-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .job-card.pending { border-left-color: #fbbf24; }
+        .job-card.processing { border-left-color: #3b82f6; }
+        .job-card.completed { border-left-color: #10b981; }
+        .job-card.failed { border-left-color: #ef4444; }
+    </style>
+</head>
+<body class="p-4 sm:p-6">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-bold text-white">Async Parallel Prompt Engineering Console</h1>
+                    <p class="text-gray-400 mt-2">Powered by Sonar Deep Research - Submit multiple iterations in parallel and watch results stream in real-time</p>
+                </div>
+                <div class="text-right text-sm">
+                    <div class="text-purple-400 font-semibold">⚡ ASYNC MODE</div>
+                    <div class="text-gray-500">Parallel Execution</div>
+                </div>
+            </div>
+        </header>
+        <div class="console-container">
+            <!-- Left Panel: Configuration -->
+            <div class="glass-pane p-6 flex flex-col">
+                <h2 class="text-xl font-semibold text-white mb-4">Configuration</h2>
+
+                <div class="mb-4">
+                    <label for="api-key" class="block text-sm font-medium text-red-400 mb-1">Perplexity API Key (Required)</label>
+                    <div class="flex space-x-2">
+                        <input type="password" id="api-key" placeholder="Enter your Perplexity API Key" class="flex-grow bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-red-500 focus:border-red-500">
+                        <button id="toggle-save-key" class="btn btn-secondary px-3 text-xs" title="Toggle API key persistence">
+                            <span id="save-key-icon">💾</span>
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <span id="save-key-status" class="text-yellow-400"></span>
+                    </p>
+                </div>
+
+                <div class="mb-4">
+                    <label for="research-topic" class="block text-sm font-medium text-gray-300 mb-1">Research Topic</label>
+                    <textarea id="research-topic" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Latest developments in quantum computing">Latest developments in quantum computing applications</textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label for="research-goal" class="block text-sm font-medium text-gray-300 mb-1">Research Goal</label>
+                    <textarea id="research-goal" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="What insights are you looking for?">Provide a comprehensive analysis with recent breakthroughs, key applications, and future potential in practical industries.</textarea>
+                </div>
+
+                <details class="bg-gray-900/50 rounded-lg mb-4">
+                    <summary class="p-3 cursor-pointer flex justify-between items-center">
+                        <span class="font-semibold text-white">Advanced Settings</span>
+                        <svg class="arrow w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    </summary>
+                    <div class="p-4 border-t border-gray-700 space-y-4">
+                        <div>
+                            <label for="parallel-iterations" class="block text-sm font-medium text-gray-300 mb-1">Parallel Iterations</label>
+                            <input type="number" id="parallel-iterations" value="3" min="1" max="10" class="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm">
+                            <p class="text-xs text-gray-500 mt-1">Number of parallel research queries to submit</p>
+                        </div>
+                        <div>
+                            <label for="max-tokens" class="block text-sm font-medium text-gray-300 mb-1">Max Output Tokens</label>
+                            <input type="number" id="max-tokens" placeholder="e.g., 4096" value="4096" class="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm">
+                        </div>
+                        <div>
+                            <label for="poll-interval" class="block text-sm font-medium text-gray-300 mb-1">Poll Interval (seconds)</label>
+                            <input type="number" id="poll-interval" value="5" min="2" max="30" class="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm">
+                            <p class="text-xs text-gray-500 mt-1">How often to check async job status</p>
+                        </div>
+                        <div>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="auto-refine" checked class="rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-sm text-gray-300">Auto-refine prompts between iterations</span>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <div class="mb-4">
+                    <details class="bg-gray-900/50 rounded-lg">
+                        <summary class="p-3 cursor-pointer flex justify-between items-center">
+                            <span class="font-semibold text-white">Token Usage & Cost</span>
+                            <svg class="arrow w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700">
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div class="bg-gray-800 p-2 rounded">
+                                    <div class="text-gray-400 text-xs">Total Tokens</div>
+                                    <div class="text-white font-semibold" id="total-tokens">0</div>
+                                </div>
+                                <div class="bg-gray-800 p-2 rounded">
+                                    <div class="text-gray-400 text-xs">Est. Cost (USD)</div>
+                                    <div class="text-green-400 font-semibold" id="total-cost">$0.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="flex items-center space-x-4 mb-4">
+                    <button id="start-btn" class="btn btn-primary flex-1">⚡ Start Async Research</button>
+                    <button id="stop-btn" class="btn btn-secondary flex-1" disabled>Stop</button>
+                </div>
+
+                <div class="flex items-center space-x-2 mb-4">
+                    <button id="export-btn" class="btn btn-secondary text-xs flex-1">📥 Export Results</button>
+                    <button id="clear-btn" class="btn btn-secondary text-xs flex-1">🗑️ Clear All</button>
+                </div>
+
+                <div id="status" class="flex items-center space-x-2 text-sm p-3 bg-gray-900/50 rounded-md">
+                    <div id="loader" class="loader hidden"></div>
+                    <span id="status-text" class="text-gray-400">Ready. Enter API Key to begin parallel research.</span>
+                </div>
+            </div>
+
+            <!-- Right Panel: Async Jobs Monitor -->
+            <div class="glass-pane p-6 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-white">Async Research Jobs</h2>
+                    <div id="jobs-summary" class="text-sm text-gray-400">
+                        <span id="completed-count" class="text-green-400">0</span>/<span id="total-count">0</span> completed
+                    </div>
+                </div>
+                <div id="jobs-container" class="flex-grow overflow-y-auto pr-2 space-y-3">
+                    <div class="text-center text-gray-500 py-12">
+                        <div class="text-4xl mb-2">⚡</div>
+                        <p>No async jobs running</p>
+                        <p class="text-xs mt-2">Submit parallel iterations to see real-time progress</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // DOM Elements
+        const apiKeyEl = document.getElementById('api-key');
+        const toggleSaveKeyBtn = document.getElementById('toggle-save-key');
+        const saveKeyIcon = document.getElementById('save-key-icon');
+        const saveKeyStatus = document.getElementById('save-key-status');
+        const researchTopicEl = document.getElementById('research-topic');
+        const researchGoalEl = document.getElementById('research-goal');
+        const parallelIterationsEl = document.getElementById('parallel-iterations');
+        const maxTokensEl = document.getElementById('max-tokens');
+        const pollIntervalEl = document.getElementById('poll-interval');
+        const autoRefineEl = document.getElementById('auto-refine');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const statusText = document.getElementById('status-text');
+        const loader = document.getElementById('loader');
+        const jobsContainer = document.getElementById('jobs-container');
+        const completedCountEl = document.getElementById('completed-count');
+        const totalCountEl = document.getElementById('total-count');
+        const totalTokensEl = document.getElementById('total-tokens');
+        const totalCostEl = document.getElementById('total-cost');
+
+        let isRunning = false;
+        let shouldStop = false;
+        let asyncJobs = [];
+        let pollingIntervals = [];
+        let tokenStats = { totalTokens: 0, estimatedCost: 0 };
+
+        // --- Configuration Persistence ---
+        function loadSettings() {
+            const saved = localStorage.getItem('async-console-settings');
+            if (saved) {
+                try {
+                    const settings = JSON.parse(saved);
+                    if (settings.apiKey) {
+                        apiKeyEl.value = settings.apiKey;
+                        saveKeyStatus.textContent = '(Saved)';
+                        saveKeyIcon.textContent = '🔓';
+                    }
+                    if (settings.researchTopic) researchTopicEl.value = settings.researchTopic;
+                    if (settings.researchGoal) researchGoalEl.value = settings.researchGoal;
+                    if (settings.parallelIterations) parallelIterationsEl.value = settings.parallelIterations;
+                    if (settings.maxTokens) maxTokensEl.value = settings.maxTokens;
+                    if (settings.pollInterval) pollIntervalEl.value = settings.pollInterval;
+                    if (settings.autoRefine !== undefined) autoRefineEl.checked = settings.autoRefine;
+                } catch (e) {
+                    console.error('Failed to load settings:', e);
+                }
+            }
+        }
+
+        function saveSettings() {
+            const settings = {
+                apiKey: localStorage.getItem('async-console-save-key') ? apiKeyEl.value : '',
+                researchTopic: researchTopicEl.value,
+                researchGoal: researchGoalEl.value,
+                parallelIterations: parallelIterationsEl.value,
+                maxTokens: maxTokensEl.value,
+                pollInterval: pollIntervalEl.value,
+                autoRefine: autoRefineEl.checked
+            };
+            localStorage.setItem('async-console-settings', JSON.stringify(settings));
+        }
+
+        function toggleSaveKey() {
+            const isSaved = localStorage.getItem('async-console-save-key');
+            if (isSaved) {
+                localStorage.removeItem('async-console-save-key');
+                saveKeyStatus.textContent = '';
+                saveKeyIcon.textContent = '💾';
+                updateStatus('API key will not be saved');
+            } else {
+                localStorage.setItem('async-console-save-key', 'true');
+                saveKeyStatus.textContent = '(Saved)';
+                saveKeyIcon.textContent = '🔓';
+                updateStatus('API key saved in browser');
+            }
+            saveSettings();
+        }
+
+        // --- Async API Communication ---
+        async function createAsyncJob(apiKey, prompt, iterationNum) {
+            const apiUrl = 'https://api.perplexity.ai/async/chat/completions';
+
+            const payload = {
+                model: 'sonar-deep-research',
+                messages: [
+                    { role: 'user', content: prompt }
+                ],
+                max_tokens: parseInt(maxTokensEl.value) || 4096
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result?.error?.message || `API failed: ${response.status}`);
+                }
+
+                return {
+                    request_id: result.request_id,
+                    status: result.status,
+                    iteration: iterationNum,
+                    prompt: prompt,
+                    created_at: new Date().toISOString()
+                };
+            } catch (error) {
+                console.error('Create async job error:', error);
+                throw error;
+            }
+        }
+
+        async function checkAsyncJobStatus(apiKey, requestId) {
+            const apiUrl = `https://api.perplexity.ai/async/chat/completions/${requestId}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result?.error?.message || `Status check failed: ${response.status}`);
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Check status error:', error);
+                throw error;
+            }
+        }
+
+        // --- Job Management ---
+        async function startAsyncResearch() {
+            if (isRunning) return;
+
+            const apiKey = apiKeyEl.value.trim();
+            if (!apiKey) {
+                updateStatus('❌ API Key required');
+                apiKeyEl.focus();
+                return;
+            }
+
+            const topic = researchTopicEl.value.trim();
+            const goal = researchGoalEl.value.trim();
+            if (!topic || !goal) {
+                updateStatus('❌ Please provide research topic and goal');
+                return;
+            }
+
+            isRunning = true;
+            shouldStop = false;
+            asyncJobs = [];
+            jobsContainer.innerHTML = '';
+            updateUIState(true);
+            saveSettings();
+
+            const iterations = parseInt(parallelIterationsEl.value);
+            totalCountEl.textContent = iterations;
+            completedCountEl.textContent = '0';
+
+            updateStatus(`Submitting ${iterations} parallel research jobs...`);
+
+            // Generate prompts for each iteration
+            const prompts = [];
+            for (let i = 0; i < iterations; i++) {
+                let prompt = topic;
+                if (autoRefineEl.checked && i > 0) {
+                    prompt = `${topic}\n\nPerspective ${i + 1}: Focus on ${['recent developments', 'practical applications', 'future implications', 'technical challenges', 'industry impact', 'research frontiers'][i % 6]} with emphasis on: ${goal}`;
+                } else {
+                    prompt = `${topic}\n\nResearch angle ${i + 1}: ${goal}`;
+                }
+                prompts.push(prompt);
+            }
+
+            // Submit all jobs in parallel
+            try {
+                const jobPromises = prompts.map((prompt, idx) =>
+                    createAsyncJob(apiKey, prompt, idx + 1)
+                );
+
+                const jobs = await Promise.allSettled(jobPromises);
+
+                jobs.forEach((result, idx) => {
+                    if (result.status === 'fulfilled') {
+                        const job = result.value;
+                        asyncJobs.push(job);
+                        addJobCard(job);
+                        startPolling(apiKey, job);
+                    } else {
+                        addErrorJobCard(idx + 1, result.reason.message);
+                    }
+                });
+
+                updateStatus(`${asyncJobs.length} jobs submitted. Polling for results...`);
+            } catch (error) {
+                updateStatus(`❌ Error submitting jobs: ${error.message}`);
+                isRunning = false;
+                updateUIState(false);
+            }
+        }
+
+        function startPolling(apiKey, job) {
+            const pollInterval = parseInt(pollIntervalEl.value) * 1000;
+
+            const intervalId = setInterval(async () => {
+                if (shouldStop) {
+                    clearInterval(intervalId);
+                    return;
+                }
+
+                try {
+                    const status = await checkAsyncJobStatus(apiKey, job.request_id);
+                    updateJobCard(job.request_id, status);
+
+                    if (status.status === 'completed') {
+                        clearInterval(intervalId);
+                        handleJobCompleted(job.request_id, status);
+                    } else if (status.status === 'failed') {
+                        clearInterval(intervalId);
+                        handleJobFailed(job.request_id, status);
+                    }
+                } catch (error) {
+                    console.error(`Polling error for ${job.request_id}:`, error);
+                }
+            }, pollInterval);
+
+            pollingIntervals.push(intervalId);
+        }
+
+        function addJobCard(job) {
+            const card = document.createElement('div');
+            card.id = `job-${job.request_id}`;
+            card.className = 'job-card pending p-4 bg-gray-900/50 rounded-lg';
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-lg">🔬</span>
+                        <span class="font-semibold text-white">Iteration ${job.iteration}</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="status-badge status-pending text-xs px-2 py-1 rounded">Pending</div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-400 mb-2 line-clamp-2">${escapeHtml(job.prompt)}</div>
+                <div class="text-xs text-gray-500">Request ID: ${job.request_id.substring(0, 20)}...</div>
+                <div class="result-container mt-3 hidden"></div>
+            `;
+            jobsContainer.appendChild(card);
+        }
+
+        function addErrorJobCard(iteration, error) {
+            const card = document.createElement('div');
+            card.className = 'job-card failed p-4 bg-gray-900/50 rounded-lg';
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-lg">❌</span>
+                        <span class="font-semibold text-white">Iteration ${iteration}</span>
+                    </div>
+                    <div class="status-badge status-failed text-xs px-2 py-1 rounded">Failed to Submit</div>
+                </div>
+                <div class="text-sm text-red-400">${escapeHtml(error)}</div>
+            `;
+            jobsContainer.appendChild(card);
+        }
+
+        function updateJobCard(requestId, status) {
+            const card = document.getElementById(`job-${requestId}`);
+            if (!card) return;
+
+            const badge = card.querySelector('.status-badge');
+            card.className = `job-card ${status.status} p-4 bg-gray-900/50 rounded-lg`;
+
+            if (status.status === 'pending' || status.status === 'processing') {
+                badge.textContent = status.status === 'pending' ? 'Pending' : 'Processing';
+                badge.className = `status-badge status-${status.status} text-xs px-2 py-1 rounded pulse`;
+            }
+        }
+
+        function handleJobCompleted(requestId, status) {
+            const card = document.getElementById(`job-${requestId}`);
+            if (!card) return;
+
+            const badge = card.querySelector('.status-badge');
+            badge.textContent = 'Completed ✓';
+            badge.className = 'status-badge status-completed text-xs px-2 py-1 rounded';
+            card.className = 'job-card completed p-4 bg-gray-900/50 rounded-lg';
+
+            const resultContainer = card.querySelector('.result-container');
+            resultContainer.classList.remove('hidden');
+
+            const content = status.result?.choices?.[0]?.message?.content || 'No content';
+            const usage = status.result?.usage;
+
+            if (usage) {
+                tokenStats.totalTokens += usage.total_tokens || 0;
+                tokenStats.estimatedCost += calculateCost(usage.prompt_tokens || 0, usage.completion_tokens || 0);
+                updateTokenDisplay();
+            }
+
+            resultContainer.innerHTML = `
+                <details class="mt-2">
+                    <summary class="cursor-pointer text-sm text-indigo-400 hover:text-indigo-300">View Full Research Result</summary>
+                    <div class="mt-2 p-3 bg-gray-800 rounded text-sm text-gray-300 whitespace-pre-wrap max-h-96 overflow-y-auto">${escapeHtml(content)}</div>
+                    ${usage ? `<div class="mt-2 text-xs text-gray-500">Tokens: ${usage.total_tokens} | Cost: $${calculateCost(usage.prompt_tokens, usage.completion_tokens).toFixed(4)}</div>` : ''}
+                </details>
+            `;
+
+            updateCompletedCount();
+            checkIfAllCompleted();
+        }
+
+        function handleJobFailed(requestId, status) {
+            const card = document.getElementById(`job-${requestId}`);
+            if (!card) return;
+
+            const badge = card.querySelector('.status-badge');
+            badge.textContent = 'Failed ✗';
+            badge.className = 'status-badge status-failed text-xs px-2 py-1 rounded';
+            card.className = 'job-card failed p-4 bg-gray-900/50 rounded-lg';
+
+            const resultContainer = card.querySelector('.result-container');
+            resultContainer.classList.remove('hidden');
+            resultContainer.innerHTML = `
+                <div class="mt-2 p-3 bg-red-900/20 rounded text-sm text-red-400">
+                    Error: ${escapeHtml(status.error || 'Unknown error')}
+                </div>
+            `;
+
+            updateCompletedCount();
+            checkIfAllCompleted();
+        }
+
+        function updateCompletedCount() {
+            const completed = document.querySelectorAll('.job-card.completed, .job-card.failed').length;
+            completedCountEl.textContent = completed;
+        }
+
+        function checkIfAllCompleted() {
+            const total = asyncJobs.length;
+            const completed = document.querySelectorAll('.job-card.completed, .job-card.failed').length;
+
+            if (completed === total && total > 0) {
+                updateStatus(`✓ All ${total} research jobs completed!`);
+                stopResearch();
+            }
+        }
+
+        function stopResearch() {
+            shouldStop = true;
+            pollingIntervals.forEach(id => clearInterval(id));
+            pollingIntervals = [];
+            isRunning = false;
+            updateUIState(false);
+        }
+
+        function clearAll() {
+            if (isRunning && !confirm('Stop current research and clear all results?')) {
+                return;
+            }
+            stopResearch();
+            asyncJobs = [];
+            jobsContainer.innerHTML = `
+                <div class="text-center text-gray-500 py-12">
+                    <div class="text-4xl mb-2">⚡</div>
+                    <p>No async jobs running</p>
+                    <p class="text-xs mt-2">Submit parallel iterations to see real-time progress</p>
+                </div>
+            `;
+            completedCountEl.textContent = '0';
+            totalCountEl.textContent = '0';
+            updateStatus('Cleared all results');
+        }
+
+        function exportResults() {
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                config: {
+                    researchTopic: researchTopicEl.value,
+                    researchGoal: researchGoalEl.value,
+                    parallelIterations: parallelIterationsEl.value
+                },
+                jobs: asyncJobs.map(job => {
+                    const card = document.getElementById(`job-${job.request_id}`);
+                    const resultEl = card?.querySelector('.result-container details div');
+                    return {
+                        iteration: job.iteration,
+                        prompt: job.prompt,
+                        request_id: job.request_id,
+                        result: resultEl?.textContent || 'No result'
+                    };
+                }),
+                tokenStats: tokenStats
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `async-research-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            updateStatus('Results exported');
+        }
+
+        // --- Utility Functions ---
+        function calculateCost(inputTokens, outputTokens) {
+            // Sonar Deep Research pricing: $3 per 1M input, $15 per 1M output, $0.005 per request
+            const inputCost = (inputTokens / 1000000) * 3.0;
+            const outputCost = (outputTokens / 1000000) * 15.0;
+            return inputCost + outputCost + 0.005;
+        }
+
+        function updateTokenDisplay() {
+            totalTokensEl.textContent = tokenStats.totalTokens.toLocaleString();
+            totalCostEl.textContent = '$' + tokenStats.estimatedCost.toFixed(4);
+        }
+
+        function updateUIState(running) {
+            startBtn.disabled = running;
+            stopBtn.disabled = !running;
+            apiKeyEl.disabled = running;
+            toggleSaveKeyBtn.disabled = running;
+            researchTopicEl.disabled = running;
+            researchGoalEl.disabled = running;
+            parallelIterationsEl.disabled = running;
+            maxTokensEl.disabled = running;
+            pollIntervalEl.disabled = running;
+            autoRefineEl.disabled = running;
+            loader.classList.toggle('hidden', !running);
+        }
+
+        function updateStatus(text) {
+            statusText.textContent = text;
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', startAsyncResearch);
+        stopBtn.addEventListener('click', stopResearch);
+        toggleSaveKeyBtn.addEventListener('click', toggleSaveKey);
+        exportBtn.addEventListener('click', exportResults);
+        clearBtn.addEventListener('click', clearAll);
+
+        [apiKeyEl, researchTopicEl, researchGoalEl, parallelIterationsEl, maxTokensEl, pollIntervalEl, autoRefineEl].forEach(el => {
+            el.addEventListener('change', saveSettings);
+        });
+
+        window.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html>
