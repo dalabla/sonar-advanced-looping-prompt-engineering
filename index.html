@@ -152,6 +152,21 @@
                                 <option value="year">Past year</option>
                             </select>
                         </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label for="search-context-size" class="block text-sm font-medium text-gray-300 mb-1">Search Context Size</label>
+                            <select id="search-context-size" class="w-full bg-gray-800 border border-gray-600 rounded-md p-2 text-sm">
+                                <option value="low">Low - Fastest, cheapest ($5-6/1K requests)</option>
+                                <option value="medium">Medium - Balanced cost/quality ($8-10/1K requests)</option>
+                                <option value="high">High - Maximum depth, best for research ($12-14/1K requests)</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Only applies to Sonar, Sonar Pro, and Reasoning models (not Deep Research)</p>
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="return-related-questions" class="rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500">
+                                <span class="text-sm text-gray-300">Return related questions for exploration</span>
+                            </label>
+                        </div>
                     </div>
                 </details>
                 <div class="flex items-center space-x-4 mb-6">
@@ -179,6 +194,48 @@
         </div>
     </div>
     <script>
+        // Pricing Configuration (Official Perplexity Pricing)
+        const PRICING = {
+            'sonar': {
+                input: 1,      // $/1M tokens
+                output: 1,     // $/1M tokens
+                requests: {low: 5, medium: 8, high: 12}  // $/1K requests
+            },
+            'sonar-pro': {
+                input: 3,
+                output: 15,
+                requests: {low: 6, medium: 10, high: 14}
+            },
+            'sonar-reasoning': {
+                input: 1,
+                output: 5,
+                requests: {low: 5, medium: 8, high: 12}
+            },
+            'sonar-reasoning-pro': {
+                input: 2,
+                output: 8,
+                requests: {low: 6, medium: 10, high: 14}
+            },
+            'sonar-deep-research': {
+                input: 2,
+                output: 8,
+                citation: 2,         // $/1M tokens
+                reasoning: 3,        // $/1M tokens
+                searchQueries: 5     // $/1K queries
+            }
+        };
+
+        // Session Analytics
+        let sessionAnalytics = {
+            totalInputTokens: 0,
+            totalOutputTokens: 0,
+            totalCitationTokens: 0,
+            totalReasoningTokens: 0,
+            totalSearchQueries: 0,
+            totalRequests: 0,
+            totalCost: 0
+        };
+
         // DOM Elements
         const apiKeyEl = document.getElementById('api-key');
         const startBtn = document.getElementById('start-btn');
@@ -193,6 +250,8 @@
         const maxTokensEl = document.getElementById('max-tokens');
         const returnImagesEl = document.getElementById('return-images');
         const searchRecencyEl = document.getElementById('search-recency');
+        const searchContextSizeEl = document.getElementById('search-context-size');
+        const returnRelatedQuestionsEl = document.getElementById('return-related-questions');
         const logContainer = document.getElementById('log-container');
         const finalResponseContainer = document.getElementById('final-response-container');
         const finalResponseActions = document.getElementById('final-response-actions');
@@ -202,26 +261,62 @@
         let shouldStop = false;
         const copyIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 3a1 1 0 011-1h8a1 1 0 011 1v8a1 1 0 01-1 1h-1v1a1 1 0 102 0V3a3 3 0 00-3-3H8a3 3 0 00-3 3v8a3 3 0 003 3h1v-1a1 1 0 10-2 0v1a1 1 0 102 0v-1a1 1 0 011-1h1V3zM3 8a1 1 0 011-1h8a1 1 0 011 1v8a1 1 0 01-1 1H4a1 1 0 01-1-1V8z"/></svg>`;
         const downloadIcon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>`;
-        
+
+        // --- Cost Calculation ---
+        function calculateCost(model, usage, contextSize = 'low') {
+            const pricing = PRICING[model];
+            if (!pricing) return 0;
+
+            let cost = 0;
+
+            // Token costs
+            cost += (usage.input_tokens || 0) / 1000000 * pricing.input;
+            cost += (usage.output_tokens || 0) / 1000000 * pricing.output;
+
+            // Deep Research specific costs
+            if (model === 'sonar-deep-research') {
+                cost += (usage.citation_tokens || 0) / 1000000 * pricing.citation;
+                cost += (usage.reasoning_tokens || 0) / 1000000 * pricing.reasoning;
+                cost += (usage.search_queries || 0) / 1000 * pricing.searchQueries;
+            } else {
+                // Request fee for other models
+                cost += 1 / 1000 * pricing.requests[contextSize];
+            }
+
+            return cost;
+        }
+
+        function formatCost(cost) {
+            return '$' + cost.toFixed(6);
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
         // --- API Communication ---
         async function callSonarAPI(apiKey, prompt, systemPrompt = null, isTest = false) {
             const selectedModel = modelSelect.value;
             const apiUrl = `https://api.perplexity.ai/chat/completions`;
+
             // Build messages array
             const messages = [];
             if (systemPrompt && systemPrompt.trim()) {
                 messages.push({ role: 'system', content: systemPrompt });
             }
             messages.push({ role: 'user', content: prompt });
+
             const payload = {
                 model: selectedModel,
                 messages: messages,
                 temperature: parseFloat(temperatureSlider.value),
             };
+
             // Add optional parameters
             if (!isTest && maxTokensEl.value) {
                 payload.max_tokens = parseInt(maxTokensEl.value);
             }
+
             // Add Sonar-specific parameters
             if (returnImagesEl.checked) {
                 payload.return_images = true;
@@ -229,33 +324,76 @@
             if (searchRecencyEl.value) {
                 payload.search_recency_filter = searchRecencyEl.value;
             }
+            if (returnRelatedQuestionsEl.checked) {
+                payload.return_related_questions = true;
+            }
+
+            // Add search_context_size for applicable models (not Deep Research)
+            if (!selectedModel.includes('deep-research')) {
+                payload.search_context_size = searchContextSizeEl.value;
+            }
+
             const payloadString = JSON.stringify(payload, null, 2);
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: payloadString
-                });
-                
-                const result = await response.json();
-                if (!response.ok) {
-                    const errorMsg = result?.error?.message || `API failed with status: ${response.status}`;
-                    throw new Error(errorMsg);
+
+            // Exponential backoff retry logic for 429 errors
+            const maxRetries = 4;
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: payloadString
+                    });
+
+                    const result = await response.json();
+
+                    // Handle 429 rate limit errors with retry
+                    if (response.status === 429) {
+                        if (attempt < maxRetries - 1) {
+                            const delay = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s, 16s
+                            updateStatus(`⏳ Rate limit hit. Retrying in ${delay/1000}s... (attempt ${attempt + 1}/${maxRetries})`);
+                            await sleep(delay);
+                            continue; // Retry
+                        } else {
+                            throw new Error('Rate limit exceeded. Maximum retries reached.');
+                        }
+                    }
+
+                    if (!response.ok) {
+                        const errorMsg = result?.error?.message || `API failed with status: ${response.status}`;
+                        throw new Error(errorMsg);
+                    }
+
+                    const text = result.choices?.[0]?.message?.content;
+
+                    if (!text) {
+                        console.error("Invalid API response structure:", JSON.stringify(result, null, 2));
+                        throw new Error("Received an empty or invalid response from the API.");
+                    }
+
+                    // Extract usage and additional data
+                    const usage = result.usage || {};
+                    const searchResults = result.search_results || result.citations || [];
+                    const relatedQuestions = result.related_questions || [];
+
+                    return {
+                        text,
+                        payloadString,
+                        searchResults,
+                        relatedQuestions,
+                        usage
+                    };
+                } catch (error) {
+                    // Only retry on 429, throw other errors
+                    if (error.message.includes('Rate limit') && attempt < maxRetries - 1) {
+                        continue;
+                    }
+                    console.error("Sonar API Error:", error);
+                    return { error: error.message, payloadString };
                 }
-                
-                const text = result.choices?.[0]?.message?.content;
-                
-                if (!text) {
-                    console.error("Invalid API response structure:", JSON.stringify(result, null, 2));
-                    throw new Error("Received an empty or invalid response from the API.");
-                }
-                return { text, payloadString, searchResults: result.search_results || [] };
-            } catch (error) {
-                console.error("Sonar API Error:", error);
-                return { error: error.message, payloadString };
             }
         }
         
@@ -278,13 +416,13 @@
             updateStatus('Testing connection...');
             loader.classList.remove('hidden');
             testConnectionBtn.disabled = true;
-            const { text, error } = await callSonarAPI(apiKey, "Hello, this is a test.", null, true);
-            if (error) {
-                updateStatus(`❌ Connection failed: ${error}`);
-                finalResponseContainer.innerHTML = `<p class="text-red-400">Connection Test Failed: ${escapeHtml(error)}</p>`;
+            const result = await callSonarAPI(apiKey, "Hello, this is a test.", null, true);
+            if (result.error) {
+                updateStatus(`❌ Connection failed: ${result.error}`);
+                finalResponseContainer.innerHTML = `<p class="text-red-400">Connection Test Failed: ${escapeHtml(result.error)}</p>`;
             } else {
                 updateStatus(`✅ Connection successful!`);
-                finalResponseContainer.innerHTML = `<p class="text-green-400">Connection Test Successful! Received response: "${escapeHtml(text.trim())}"</p>`;
+                finalResponseContainer.innerHTML = `<p class="text-green-400">Connection Test Successful! Received response: "${escapeHtml(result.text.trim())}"</p>`;
             }
             loader.classList.add('hidden');
             testConnectionBtn.disabled = false;
@@ -293,13 +431,25 @@
             if (isRunning) return;
             const apiKey = checkApiKey();
             if (!apiKey) return;
-            
+
             const initialPrompt = initialPromptEl.value.trim();
             const goal = goalEl.value.trim();
             if (!initialPrompt || !goal) {
                 finalResponseContainer.innerHTML = `<p class="text-red-400">Error: Please provide an Initial Prompt and a Goal.</p>`;
                 return;
             }
+
+            // Reset session analytics
+            sessionAnalytics = {
+                totalInputTokens: 0,
+                totalOutputTokens: 0,
+                totalCitationTokens: 0,
+                totalReasoningTokens: 0,
+                totalSearchQueries: 0,
+                totalRequests: 0,
+                totalCost: 0
+            };
+
             isRunning = true;
             shouldStop = false;
             let conversationHistory = [];
@@ -307,34 +457,49 @@
             finalResponseContainer.innerHTML = '<p class="text-gray-500">Initializing loop...</p>';
             finalResponseActions.classList.add('hidden');
             updateUIState(true);
+
             let currentPrompt = initialPrompt;
             for (let i = 0; i < parseInt(iterationsEl.value); i++) {
                 if (shouldStop) { updateStatus('Process stopped.'); break; }
-                
+
                 const iterationNum = i + 1;
                 updateStatus(`Iteration ${iterationNum}: Sending prompt...`);
-                
-                const { text: response, payloadString, searchResults = [], error } = await callSonarAPI(apiKey, currentPrompt);
-                
+
+                const result = await callSonarAPI(apiKey, currentPrompt);
+
                 if (shouldStop) break;
-                if (error) {
-                    addLogEntry(iterationNum, currentPrompt, `API ERROR: ${error}`, payloadString, true);
+                if (result.error) {
+                    addLogEntry(iterationNum, currentPrompt, `API ERROR: ${result.error}`, result.payloadString, true);
                     updateStatus(`Error in iteration ${iterationNum}. Stopping.`);
                     break;
                 }
-                addLogEntry(iterationNum, currentPrompt, response, payloadString, false, searchResults);
-                conversationHistory.push({ role: 'user', prompt: currentPrompt }, { role: 'model', response: response });
+
+                // Update session analytics
+                const usage = result.usage || {};
+                const cost = calculateCost(modelSelect.value, usage, searchContextSizeEl.value);
+                sessionAnalytics.totalInputTokens += usage.prompt_tokens || 0;
+                sessionAnalytics.totalOutputTokens += usage.completion_tokens || 0;
+                sessionAnalytics.totalCitationTokens += usage.citation_tokens || 0;
+                sessionAnalytics.totalReasoningTokens += usage.reasoning_tokens || 0;
+                sessionAnalytics.totalSearchQueries += usage.search_queries || 0;
+                sessionAnalytics.totalRequests += 1;
+                sessionAnalytics.totalCost += cost;
+
+                addLogEntry(iterationNum, currentPrompt, result.text, result.payloadString, false, result.searchResults, result.relatedQuestions, usage, cost);
+                conversationHistory.push({ role: 'user', prompt: currentPrompt }, { role: 'model', response: result.text });
+
                 if (i < parseInt(iterationsEl.value) - 1) {
                     updateStatus(`Iteration ${iterationNum}: Refining prompt...`);
                     const historyText = conversationHistory.map(turn => `${turn.role === 'user' ? 'Prompt' : 'Response'}:\n${turn.role === 'user' ? turn.prompt : turn.response}`).join('\n\n---\n\n');
-                    const { text: newPrompt, error: refineError } = await refinePrompt(apiKey, goal, historyText);
-                    if (refineError) {
+                    const refineResult = await refinePrompt(apiKey, goal, historyText);
+                    if (refineResult.error) {
                          updateStatus(`Error while refining prompt. Stopping.`);
                          break;
                     }
-                    currentPrompt = newPrompt;
+                    currentPrompt = refineResult.text?.trim();
                 }
             }
+
             if (!shouldStop && conversationHistory.length > 0) {
                 const historyText = conversationHistory.map(turn => `${turn.role === 'user' ? 'Prompt' : 'Response'}:\n${turn.role === 'user' ? turn.prompt : turn.response}`).join('\n\n---\n\n');
                 await determineBestResponse(apiKey, goal, historyText);
@@ -404,27 +569,122 @@ Return the best possible response, incorporating insights from all iterations.`;
             container.appendChild(downloadBtn);
             return container;
         }
-        function addLogEntry(iteration, prompt, response, payload, isError = false, searchResults = []) {
+        function addLogEntry(iteration, prompt, response, payload, isError = false, searchResults = [], relatedQuestions = [], usage = {}, cost = 0) {
             const id = `iteration-${iteration}`;
             const logEntry = document.createElement('div');
             logEntry.className = `p-4 bg-gray-900/50 rounded-lg text-sm ${isError ? 'border border-red-500/50' : ''}`;
             const responseColor = isError ? 'text-red-400' : 'text-gray-300';
-            
-            let searchResultsHtml = '';
+
+            // Token usage and cost display
+            let usageHtml = '';
+            if (!isError && (usage.prompt_tokens || usage.completion_tokens)) {
+                const model = modelSelect.value;
+                const pricing = PRICING[model];
+                const contextSize = searchContextSizeEl.value;
+
+                let usageDetails = `
+                    <div class="mb-3 p-3 bg-gray-800/70 rounded border border-gray-700">
+                        <p class="font-semibold text-green-400 mb-2">📊 Token Usage & Cost</p>
+                        <div class="text-xs space-y-1">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Input Tokens:</span>
+                                <span class="text-gray-300">${(usage.prompt_tokens || 0).toLocaleString()} × $${pricing.input}/M = ${formatCost((usage.prompt_tokens || 0) / 1000000 * pricing.input)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Output Tokens:</span>
+                                <span class="text-gray-300">${(usage.completion_tokens || 0).toLocaleString()} × $${pricing.output}/M = ${formatCost((usage.completion_tokens || 0) / 1000000 * pricing.output)}</span>
+                            </div>
+                `;
+
+                if (model === 'sonar-deep-research') {
+                    if (usage.citation_tokens) {
+                        usageDetails += `
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Citation Tokens:</span>
+                                <span class="text-gray-300">${(usage.citation_tokens || 0).toLocaleString()} × $${pricing.citation}/M = ${formatCost((usage.citation_tokens || 0) / 1000000 * pricing.citation)}</span>
+                            </div>
+                        `;
+                    }
+                    if (usage.reasoning_tokens) {
+                        usageDetails += `
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Reasoning Tokens:</span>
+                                <span class="text-gray-300">${(usage.reasoning_tokens || 0).toLocaleString()} × $${pricing.reasoning}/M = ${formatCost((usage.reasoning_tokens || 0) / 1000000 * pricing.reasoning)}</span>
+                            </div>
+                        `;
+                    }
+                    if (usage.search_queries) {
+                        usageDetails += `
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Search Queries:</span>
+                                <span class="text-gray-300">${usage.search_queries} × $${pricing.searchQueries}/K = ${formatCost((usage.search_queries || 0) / 1000 * pricing.searchQueries)}</span>
+                            </div>
+                        `;
+                    }
+                } else {
+                    usageDetails += `
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Request Fee (${contextSize}):</span>
+                            <span class="text-gray-300">1 × $${pricing.requests[contextSize]}/K = ${formatCost(1 / 1000 * pricing.requests[contextSize])}</span>
+                        </div>
+                    `;
+                }
+
+                usageDetails += `
+                            <div class="flex justify-between border-t border-gray-600 pt-1 mt-1">
+                                <span class="text-gray-300 font-semibold">Iteration Cost:</span>
+                                <span class="text-green-400 font-semibold">${formatCost(cost)}</span>
+                            </div>
+                            <div class="flex justify-between mt-2 text-xs">
+                                <span class="text-gray-500">Session Total:</span>
+                                <span class="text-yellow-400">${formatCost(sessionAnalytics.totalCost)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                usageHtml = usageDetails;
+            }
+
+            // Enhanced citations display
+            let citationsHtml = '';
             if (searchResults && searchResults.length > 0) {
-                searchResultsHtml = `
+                citationsHtml = `
                     <div class="mb-3">
-                        <p class="font-medium text-gray-400 mb-1">Search Results (${searchResults.length} sources):</p>
-                        <div class="p-2 bg-gray-800 rounded text-xs text-gray-400 space-y-1">
-                            ${searchResults.slice(0, 3).map(result => `<div>• ${result.title} (${result.url})</div>`).join('')}
-                            ${searchResults.length > 3 ? `<div>... and ${searchResults.length - 3} more sources</div>` : ''}
+                        <p class="font-medium text-blue-400 mb-2">🔗 Citations (${searchResults.length} sources)</p>
+                        <div class="p-2 bg-gray-800 rounded text-xs space-y-2">
+                            ${searchResults.slice(0, 5).map((result, idx) => `
+                                <div class="border-l-2 border-blue-500 pl-2">
+                                    <div class="font-semibold text-gray-300">[${idx + 1}] ${escapeHtml(result.title || 'Untitled')}</div>
+                                    <a href="${escapeHtml(result.url)}" target="_blank" class="text-blue-400 hover:underline break-all">${escapeHtml(result.url)}</a>
+                                </div>
+                            `).join('')}
+                            ${searchResults.length > 5 ? `<div class="text-gray-500 text-center pt-1">... and ${searchResults.length - 5} more sources</div>` : ''}
                         </div>
                     </div>
                 `;
             }
-            
+
+            // Related questions as clickable chips
+            let relatedQuestionsHtml = '';
+            if (relatedQuestions && relatedQuestions.length > 0) {
+                relatedQuestionsHtml = `
+                    <div class="mb-3">
+                        <p class="font-medium text-purple-400 mb-2">💡 Related Questions</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${relatedQuestions.map(q => `
+                                <button class="related-question-chip px-3 py-1 bg-purple-900/30 hover:bg-purple-800/50 border border-purple-600/50 rounded-full text-xs text-purple-200 transition-colors cursor-pointer"
+                                        onclick="loadRelatedQuestion('${escapeHtml(q).replace(/'/g, "\\'")}')">
+                                    ${escapeHtml(q)}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
             logEntry.innerHTML = `
                 <h3 class="font-semibold text-indigo-400 mb-2">Iteration ${iteration}</h3>
+                ${usageHtml}
                 <div class="mb-3">
                     <div class="flex justify-between items-center mb-1"><p class="font-medium text-gray-400">Sent Prompt:</p><div id="${id}-prompt-actions"></div></div>
                     <p class="p-2 bg-gray-800 rounded text-gray-300 whitespace-pre-wrap">${escapeHtml(prompt)}</p>
@@ -433,7 +693,8 @@ Return the best possible response, incorporating insights from all iterations.`;
                     <div class="flex justify-between items-center mb-1"><p class="font-medium text-gray-400">Received Response:</p><div id="${id}-response-actions"></div></div>
                     <div class="p-2 bg-gray-800 rounded ${responseColor} whitespace-pre-wrap">${escapeHtml(response)}</div>
                 </div>
-                ${searchResultsHtml}
+                ${citationsHtml}
+                ${relatedQuestionsHtml}
                 <details class="mt-2">
                     <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-300">Show API Payload</summary>
                     <div class="mt-2">
@@ -448,13 +709,24 @@ Return the best possible response, incorporating insights from all iterations.`;
             logEntry.querySelector(`#${id}-payload-actions`).appendChild(createActions(`${id}-payload`, payload));
             logContainer.scrollTop = logContainer.scrollHeight;
         }
+
+        // Handle clicking related question chips
+        function loadRelatedQuestion(question) {
+            if (isRunning) {
+                alert('Please wait for the current process to complete.');
+                return;
+            }
+            initialPromptEl.value = question;
+            initialPromptEl.scrollIntoView({ behavior: 'smooth' });
+            initialPromptEl.focus();
+        }
         function updateUIState(running) {
             isRunning = running;
             startBtn.disabled = running;
             stopBtn.disabled = !running;
             testConnectionBtn.disabled = running;
             apiKeyEl.disabled = running;
-            document.querySelectorAll('#initial-prompt, #goal, #iterations, #model-select, #temperature, #max-tokens, #return-images, #search-recency').forEach(el => el.disabled = running);
+            document.querySelectorAll('#initial-prompt, #goal, #iterations, #model-select, #temperature, #max-tokens, #return-images, #search-recency, #search-context-size, #return-related-questions').forEach(el => el.disabled = running);
             loader.classList.toggle('hidden', !running);
         }
         
