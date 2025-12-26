@@ -1,0 +1,2289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Agent Playground - Advanced Prompt Engineering</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <style>
+    /* ===== CSS RESET & ROOT VARIABLES ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Dark theme */
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #1a1a2e;
+      --bg-panel: #16213e;
+      --accent-primary: #0f4c75;
+      --accent-secondary: #3282b8;
+      --accent-highlight: #e94560;
+      --text-primary: #eaeaea;
+      --text-secondary: #a0a0a0;
+      --border-color: #2a2a4a;
+
+      /* Model-specific accents */
+      --perplexity-color: #20b2aa;
+      --claude-color: #d4a574;
+      --gemini-color: #8b5cf6;
+
+      /* Light theme */
+      --light-bg-primary: #ffffff;
+      --light-bg-secondary: #f5f5f7;
+      --light-bg-panel: #ffffff;
+      --light-accent-primary: #0066cc;
+      --light-accent-secondary: #0088ff;
+      --light-accent-highlight: #ff3366;
+      --light-text-primary: #1d1d1f;
+      --light-text-secondary: #6e6e73;
+      --light-border-color: #d2d2d7;
+    }
+
+    body.light-theme {
+      --bg-primary: var(--light-bg-primary);
+      --bg-secondary: var(--light-bg-secondary);
+      --bg-panel: var(--light-bg-panel);
+      --accent-primary: var(--light-accent-primary);
+      --accent-secondary: var(--light-accent-secondary);
+      --accent-highlight: var(--light-accent-highlight);
+      --text-primary: var(--light-text-primary);
+      --text-secondary: var(--light-text-secondary);
+      --border-color: var(--light-border-color);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .workflow-toggle {
+      display: flex;
+      background: var(--bg-panel);
+      border-radius: 8px;
+      padding: 0.25rem;
+      gap: 0.25rem;
+    }
+
+    .workflow-toggle button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .workflow-toggle button.active {
+      background: var(--accent-secondary);
+      color: white;
+    }
+
+    .icon-button {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .icon-button:hover {
+      background: var(--accent-primary);
+      border-color: var(--accent-secondary);
+    }
+
+    /* ===== MAIN LAYOUT ===== */
+    .container {
+      display: flex;
+      height: calc(100vh - 70px);
+    }
+
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+
+    .sidebar {
+      width: 320px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+
+    .sidebar.collapsed {
+      transform: translateX(100%);
+    }
+
+    /* ===== CONFIGURATION PANEL ===== */
+    .config-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .config-header h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .config-content {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .config-content.collapsed {
+      display: none;
+    }
+
+    .system-prompt-wrapper {
+      margin-bottom: 1rem;
+    }
+
+    .system-prompt-wrapper label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    .system-prompt {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .model-configs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .model-config {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .model-config.perplexity { border-left: 3px solid var(--perplexity-color); }
+    .model-config.claude { border-left: 3px solid var(--claude-color); }
+    .model-config.gemini { border-left: 3px solid var(--gemini-color); }
+
+    .model-config h4 {
+      font-size: 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .model-config label {
+      display: block;
+      font-size: 0.75rem;
+      margin-bottom: 0.25rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .model-config input,
+    .model-config select {
+      width: 100%;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.5rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ===== INPUT AREA ===== */
+    .input-area {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .input-controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .template-select {
+      flex: 1;
+      min-width: 200px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+    }
+
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-switch input {
+      width: 44px;
+      height: 24px;
+      position: relative;
+      appearance: none;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-switch input:checked {
+      background: var(--accent-secondary);
+    }
+
+    .toggle-switch input::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-switch input:checked::before {
+      left: 22px;
+    }
+
+    .main-input {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      resize: vertical;
+      min-height: 120px;
+      margin-bottom: 1rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--accent-secondary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-primary);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-panel);
+    }
+
+    .btn-danger {
+      background: var(--accent-highlight);
+      color: white;
+    }
+
+    /* ===== RESPONSE PANEL ===== */
+    .response-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .response-column {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 400px;
+    }
+
+    .response-column.perplexity { border-top: 3px solid var(--perplexity-color); }
+    .response-column.claude { border-top: 3px solid var(--claude-color); }
+    .response-column.gemini { border-top: 3px solid var(--gemini-color); }
+
+    .response-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .response-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .response-content {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      line-height: 1.8;
+    }
+
+    .response-content.empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .response-content.loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spinner {
+      border: 3px solid var(--border-color);
+      border-top: 3px solid var(--accent-secondary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .citations {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .citations h4 {
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    .citations a {
+      display: block;
+      color: var(--perplexity-color);
+      text-decoration: none;
+      font-size: 0.8rem;
+      margin-bottom: 0.25rem;
+      word-break: break-all;
+    }
+
+    .citations a:hover {
+      text-decoration: underline;
+    }
+
+    .response-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .token-count {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .btn-small {
+      padding: 0.4rem 0.75rem;
+      font-size: 0.75rem;
+      border: none;
+      border-radius: 6px;
+      background: var(--bg-panel);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .btn-small:hover {
+      background: var(--accent-primary);
+    }
+
+    /* ===== ERROR STATE ===== */
+    .error-message {
+      background: rgba(233, 69, 96, 0.1);
+      border: 1px solid var(--accent-highlight);
+      border-radius: 8px;
+      padding: 1rem;
+      color: var(--accent-highlight);
+      font-size: 0.875rem;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+
+    .modal-overlay.hidden {
+      display: none;
+    }
+
+    .modal {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+    }
+
+    .modal-close:hover {
+      background: var(--bg-secondary);
+    }
+
+    .modal-content {
+      padding: 1.5rem;
+    }
+
+    .modal-field {
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-field label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--text-secondary);
+    }
+
+    .modal-field input {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .modal-field small {
+      display: block;
+      margin-top: 0.5rem;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .modal-actions {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+    }
+
+    /* ===== HISTORY SIDEBAR ===== */
+    .history-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .history-header h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .history-list {
+      padding: 1rem;
+    }
+
+    .history-item {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .history-item:hover {
+      background: var(--bg-secondary);
+      border-color: var(--accent-secondary);
+    }
+
+    .history-item-prompt {
+      font-size: 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-item-meta {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .empty-history {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+    }
+
+    /* ===== COST ESTIMATOR ===== */
+    .cost-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .cost-panel h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .cost-breakdown {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .cost-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+
+    .cost-item-name {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .cost-item-value {
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cost-total {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 2px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      .response-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100vh;
+        z-index: 999;
+      }
+
+      .model-configs {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header {
+        padding: 1rem;
+      }
+
+      .header-title {
+        font-size: 1.25rem;
+      }
+
+      .main-content {
+        padding: 1rem;
+      }
+    }
+
+    /* ===== PRISM CODE HIGHLIGHTING OVERRIDE ===== */
+    pre[class*="language-"] {
+      background: var(--bg-secondary) !important;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1rem !important;
+      margin: 1rem 0;
+    }
+
+    code[class*="language-"] {
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 0.85rem;
+    }
+
+    /* ===== DIFF VIEW ===== */
+    .diff-view {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .diff-view h3 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .diff-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .diff-section h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .diff-section ul {
+      list-style: none;
+      padding-left: 1rem;
+    }
+
+    .diff-section li {
+      font-size: 0.875rem;
+      line-height: 1.8;
+      margin-bottom: 0.5rem;
+      padding-left: 1rem;
+      border-left: 2px solid var(--border-color);
+    }
+
+    .diff-section li.unique { border-left-color: var(--accent-highlight); }
+    .diff-section li.consensus { border-left-color: var(--accent-secondary); }
+    .diff-section li.contradiction { border-left-color: #ffa500; }
+
+    /* ===== KEYBOARD SHORTCUTS INFO ===== */
+    .shortcuts-info {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: none;
+      z-index: 100;
+    }
+
+    .shortcuts-info.visible {
+      display: block;
+    }
+
+    .shortcuts-info kbd {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 0.15rem 0.4rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-title">
+      <span>🤖</span>
+      <span>Multi-Agent Playground</span>
+    </div>
+
+    <div class="header-controls">
+      <div class="workflow-toggle">
+        <button class="active" data-mode="sequential">Sequential</button>
+        <button data-mode="parallel">Parallel</button>
+        <button data-mode="manual">Manual</button>
+      </div>
+
+      <button class="icon-button" id="toggleHistory">
+        <span>📜</span>
+        <span>History</span>
+      </button>
+
+      <button class="icon-button" id="settingsBtn">
+        <span>⚙️</span>
+        <span>Settings</span>
+      </button>
+
+      <button class="icon-button" id="themeToggle">
+        <span id="themeIcon">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <div class="container">
+    <main class="main-content">
+
+      <!-- CONFIGURATION PANEL -->
+      <div class="config-panel">
+        <div class="config-header" id="configToggle">
+          <h3>⚙️ Configuration</h3>
+          <span id="configArrow">▼</span>
+        </div>
+        <div class="config-content" id="configContent">
+
+          <div class="system-prompt-wrapper">
+            <label for="systemPrompt">System Prompt (Shared Context)</label>
+            <textarea
+              id="systemPrompt"
+              class="system-prompt"
+              placeholder="Enter a system prompt to provide shared context for all models..."
+            ></textarea>
+          </div>
+
+          <div class="model-configs">
+            <!-- Perplexity Config -->
+            <div class="model-config perplexity">
+              <h4>🔍 Perplexity</h4>
+              <label>Model</label>
+              <select id="perplexityModel">
+                <option value="sonar">sonar</option>
+                <option value="sonar-pro" selected>sonar-pro</option>
+                <option value="sonar-reasoning-pro">sonar-reasoning-pro</option>
+              </select>
+
+              <label>Search Mode</label>
+              <select id="perplexitySearchMode">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high" selected>High</option>
+              </select>
+
+              <label>Temperature</label>
+              <input type="number" id="perplexityTemp" min="0" max="2" step="0.1" value="0.2">
+
+              <label>Max Tokens</label>
+              <input type="number" id="perplexityTokens" min="100" max="8192" step="100" value="4096">
+            </div>
+
+            <!-- Claude Config -->
+            <div class="model-config claude">
+              <h4>🧠 Claude</h4>
+              <label>Model</label>
+              <select id="claudeModel">
+                <option value="claude-sonnet-4-5" selected>claude-sonnet-4-5</option>
+                <option value="claude-opus-4">claude-opus-4</option>
+                <option value="claude-haiku-4">claude-haiku-4</option>
+              </select>
+
+              <label>Temperature</label>
+              <input type="number" id="claudeTemp" min="0" max="2" step="0.1" value="0.7">
+
+              <label>Max Tokens</label>
+              <input type="number" id="claudeTokens" min="100" max="16384" step="100" value="8192">
+            </div>
+
+            <!-- Gemini Config -->
+            <div class="model-config gemini">
+              <h4>✨ Gemini</h4>
+              <label>Model</label>
+              <select id="geminiModel">
+                <option value="gemini-3-flash-preview" selected>gemini-3-flash-preview</option>
+                <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
+                <option value="gemini-exp-1206">gemini-exp-1206</option>
+              </select>
+
+              <label>Temperature</label>
+              <input type="number" id="geminiTemp" min="0" max="2" step="0.1" value="0.9">
+
+              <label>Max Tokens</label>
+              <input type="number" id="geminiTokens" min="100" max="8192" step="100" value="4096">
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- INPUT AREA -->
+      <div class="input-area">
+        <div class="input-controls">
+          <select class="template-select" id="templateSelect">
+            <option value="">Select a template...</option>
+            <option value="research-deep-dive">🔬 Research Deep Dive</option>
+            <option value="technical-analysis">💻 Technical Analysis</option>
+            <option value="creative-brainstorm">💡 Creative Brainstorm</option>
+            <option value="balanced-pipeline">⚖️ Balanced Pipeline</option>
+          </select>
+
+          <label class="toggle-switch">
+            <input type="checkbox" id="enableResearch" checked>
+            <span>Enable Research Phase</span>
+          </label>
+        </div>
+
+        <textarea
+          id="mainInput"
+          class="main-input"
+          placeholder="Enter your prompt here... (Cmd/Ctrl+Enter to run)"
+        ></textarea>
+
+        <div class="action-buttons">
+          <button class="btn btn-primary" id="runPipeline">
+            <span>▶️</span>
+            <span>Run Pipeline</span>
+          </button>
+          <button class="btn btn-secondary" id="clearAll">
+            <span>🗑️</span>
+            <span>Clear All</span>
+          </button>
+          <button class="btn btn-secondary" id="saveToHistory">
+            <span>💾</span>
+            <span>Save to History</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- COST ESTIMATOR -->
+      <div class="cost-panel" id="costPanel" style="display: none;">
+        <h3>💰 Estimated Cost</h3>
+        <div class="cost-breakdown">
+          <div class="cost-item">
+            <div class="cost-item-name">
+              <span style="color: var(--perplexity-color);">●</span>
+              <span>Perplexity</span>
+            </div>
+            <div class="cost-item-value" id="costPerplexity">$0.0000</div>
+          </div>
+          <div class="cost-item">
+            <div class="cost-item-name">
+              <span style="color: var(--claude-color);">●</span>
+              <span>Claude</span>
+            </div>
+            <div class="cost-item-value" id="costClaude">$0.0000</div>
+          </div>
+          <div class="cost-item">
+            <div class="cost-item-name">
+              <span style="color: var(--gemini-color);">●</span>
+              <span>Gemini</span>
+            </div>
+            <div class="cost-item-value" id="costGemini">$0.0000</div>
+          </div>
+        </div>
+        <div class="cost-total">
+          <span>Total Estimated Cost</span>
+          <span id="costTotal">$0.0000</span>
+        </div>
+      </div>
+
+      <!-- RESPONSE PANEL -->
+      <div class="response-panel">
+
+        <!-- Perplexity Response -->
+        <div class="response-column perplexity">
+          <div class="response-header">
+            <h3>🔍 Perplexity</h3>
+            <button class="btn-small" id="runPerplexity" style="display: none;">Run</button>
+          </div>
+          <div class="response-content empty" id="perplexityContent">
+            Awaiting research request...
+          </div>
+          <div class="response-footer">
+            <div class="token-count" id="perplexityTokens">
+              <span>○</span>
+              <span>0 tokens</span>
+            </div>
+            <div class="footer-actions">
+              <button class="btn-small" id="copyPerplexity">📋 Copy</button>
+              <button class="btn-small" id="feedPerplexity">→ Feed</button>
+              <button class="btn-small" id="regeneratePerplexity">⟳ Regenerate</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Claude Response -->
+        <div class="response-column claude">
+          <div class="response-header">
+            <h3>🧠 Claude</h3>
+            <button class="btn-small" id="runClaude" style="display: none;">Run</button>
+          </div>
+          <div class="response-content empty" id="claudeContent">
+            Awaiting analysis request...
+          </div>
+          <div class="response-footer">
+            <div class="token-count" id="claudeTokens">
+              <span>○</span>
+              <span>0 tokens</span>
+            </div>
+            <div class="footer-actions">
+              <button class="btn-small" id="copyClaude">📋 Copy</button>
+              <button class="btn-small" id="feedClaude">→ Feed</button>
+              <button class="btn-small" id="regenerateClaude">⟳ Regenerate</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gemini Response -->
+        <div class="response-column gemini">
+          <div class="response-header">
+            <h3>✨ Gemini</h3>
+            <button class="btn-small" id="runGemini" style="display: none;">Run</button>
+          </div>
+          <div class="response-content empty" id="geminiContent">
+            Awaiting synthesis request...
+          </div>
+          <div class="response-footer">
+            <div class="token-count" id="geminiTokens">
+              <span>○</span>
+              <span>0 tokens</span>
+            </div>
+            <div class="footer-actions">
+              <button class="btn-small" id="copyGemini">📋 Copy</button>
+              <button class="btn-small" id="regenerateGemini">⟳ Regenerate</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- HISTORY SIDEBAR -->
+    <aside class="sidebar collapsed" id="historySidebar">
+      <div class="history-header">
+        <h3>History</h3>
+        <button class="btn-small" id="clearHistory">Clear</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <div class="empty-history">No history yet. Run a pipeline to get started.</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-overlay hidden" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>API Settings</h2>
+        <button class="modal-close" id="closeSettings">×</button>
+      </div>
+      <div class="modal-content">
+        <div class="modal-field">
+          <label for="perplexityApiKey">Perplexity API Key</label>
+          <input type="password" id="perplexityApiKey" placeholder="pplx-...">
+          <small>Get your API key from <a href="https://www.perplexity.ai/settings/api" target="_blank" style="color: var(--perplexity-color);">perplexity.ai/settings/api</a></small>
+        </div>
+
+        <div class="modal-field">
+          <label for="claudeApiKey">Claude API Key</label>
+          <input type="password" id="claudeApiKey" placeholder="sk-ant-...">
+          <small>Get your API key from <a href="https://console.anthropic.com/" target="_blank" style="color: var(--claude-color);">console.anthropic.com</a></small>
+        </div>
+
+        <div class="modal-field">
+          <label for="geminiApiKey">Gemini API Key</label>
+          <input type="password" id="geminiApiKey" placeholder="AIza...">
+          <small>Get your API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--gemini-color);">aistudio.google.com</a></small>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancelSettings">Cancel</button>
+        <button class="btn btn-primary" id="saveSettings">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEYBOARD SHORTCUTS INFO -->
+  <div class="shortcuts-info" id="shortcutsInfo">
+    <kbd>Cmd/Ctrl</kbd> + <kbd>Enter</kbd> Run Pipeline &nbsp;|&nbsp;
+    <kbd>Esc</kbd> Clear All &nbsp;|&nbsp;
+    <kbd>?</kbd> Toggle Help
+  </div>
+
+  <!-- PRISM.JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+
+  <!-- MAIN APPLICATION SCRIPT -->
+  <script>
+    // ===== APPLICATION STATE =====
+    const AppState = {
+      workflowMode: 'sequential',
+      apiKeys: {
+        perplexity: '',
+        claude: '',
+        gemini: ''
+      },
+      responses: {
+        perplexity: { content: '', citations: [], tokens: 0 },
+        claude: { content: '', tokens: 0 },
+        gemini: { content: '', tokens: 0 }
+      },
+      history: [],
+      currentPrompt: ''
+    };
+
+    // ===== PRICING DATA (per 1M tokens in USD) =====
+    const PRICING = {
+      perplexity: {
+        'sonar': { input: 1, output: 1, search: { low: 5, medium: 5, high: 5 } },
+        'sonar-pro': { input: 3, output: 15, search: { low: 5, medium: 10, high: 15 } },
+        'sonar-reasoning-pro': { input: 2, output: 8, search: { low: 6, medium: 10, high: 14 } }
+      },
+      claude: {
+        'claude-sonnet-4-5': { input: 3, output: 15 },
+        'claude-opus-4': { input: 15, output: 75 },
+        'claude-haiku-4': { input: 0.8, output: 4 }
+      },
+      gemini: {
+        'gemini-3-flash-preview': { input: 0.50, output: 3 },
+        'gemini-2.0-flash-exp': { input: 0, output: 0 },
+        'gemini-exp-1206': { input: 0, output: 0 }
+      }
+    };
+
+    // ===== PROMPT TEMPLATES =====
+    const TEMPLATES = {
+      'research-deep-dive': {
+        name: 'Research Deep Dive',
+        systemPrompt: 'Conduct thorough research with primary sources and provide comprehensive analysis.',
+        perplexityModel: 'sonar-pro',
+        searchMode: 'high'
+      },
+      'technical-analysis': {
+        name: 'Technical Analysis',
+        systemPrompt: 'Provide detailed technical analysis with code examples where relevant.',
+        perplexityModel: 'sonar-reasoning-pro',
+        searchMode: 'medium'
+      },
+      'creative-brainstorm': {
+        name: 'Creative Brainstorm',
+        systemPrompt: 'Generate creative ideas and unexpected connections.',
+        perplexityModel: 'sonar',
+        searchMode: 'low'
+      },
+      'balanced-pipeline': {
+        name: 'Balanced Pipeline',
+        systemPrompt: 'Provide balanced analysis from multiple perspectives.',
+        perplexityModel: 'sonar-pro',
+        searchMode: 'medium'
+      }
+    };
+
+    // ===== UTILITY FUNCTIONS =====
+
+    /**
+     * Simple encryption for API keys (obfuscation)
+     */
+    function encrypt(text) {
+      return btoa(text);
+    }
+
+    function decrypt(encrypted) {
+      try {
+        return atob(encrypted);
+      } catch {
+        return '';
+      }
+    }
+
+    /**
+     * Load API keys from localStorage
+     */
+    function loadApiKeys() {
+      const stored = localStorage.getItem('apiKeys');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          AppState.apiKeys.perplexity = decrypt(parsed.perplexity || '');
+          AppState.apiKeys.claude = decrypt(parsed.claude || '');
+          AppState.apiKeys.gemini = decrypt(parsed.gemini || '');
+        } catch (e) {
+          console.error('Failed to load API keys:', e);
+        }
+      }
+    }
+
+    /**
+     * Save API keys to localStorage
+     */
+    function saveApiKeys() {
+      const encrypted = {
+        perplexity: encrypt(AppState.apiKeys.perplexity),
+        claude: encrypt(AppState.apiKeys.claude),
+        gemini: encrypt(AppState.apiKeys.gemini)
+      };
+      localStorage.setItem('apiKeys', JSON.stringify(encrypted));
+    }
+
+    /**
+     * Load history from localStorage
+     */
+    function loadHistory() {
+      const stored = localStorage.getItem('history');
+      if (stored) {
+        try {
+          AppState.history = JSON.parse(stored);
+          renderHistory();
+        } catch (e) {
+          console.error('Failed to load history:', e);
+        }
+      }
+    }
+
+    /**
+     * Save history to localStorage
+     */
+    function saveHistory() {
+      localStorage.setItem('history', JSON.stringify(AppState.history));
+    }
+
+    /**
+     * Format large numbers with commas
+     */
+    function formatNumber(num) {
+      return num.toLocaleString();
+    }
+
+    /**
+     * Estimate token count (rough approximation)
+     */
+    function estimateTokens(text) {
+      // Rough estimation: ~4 characters per token
+      return Math.ceil(text.length / 4);
+    }
+
+    /**
+     * Calculate cost for a model call
+     */
+    function calculateCost(model, inputTokens, outputTokens, searchMode = null) {
+      const pricing = PRICING[model.provider][model.name];
+      if (!pricing) return 0;
+
+      let cost = (inputTokens / 1_000_000 * pricing.input) +
+                 (outputTokens / 1_000_000 * pricing.output);
+
+      if (model.provider === 'perplexity' && searchMode && pricing.search) {
+        cost += pricing.search[searchMode] / 1_000_000;
+      }
+
+      return cost;
+    }
+
+    /**
+     * Update cost display
+     */
+    function updateCostDisplay() {
+      const perplexityCost = calculateCost(
+        { provider: 'perplexity', name: document.getElementById('perplexityModel').value },
+        estimateTokens(AppState.currentPrompt),
+        AppState.responses.perplexity.tokens,
+        document.getElementById('perplexitySearchMode').value
+      );
+
+      const claudeCost = calculateCost(
+        { provider: 'claude', name: document.getElementById('claudeModel').value },
+        estimateTokens(AppState.currentPrompt + AppState.responses.perplexity.content),
+        AppState.responses.claude.tokens
+      );
+
+      const geminiCost = calculateCost(
+        { provider: 'gemini', name: document.getElementById('geminiModel').value },
+        estimateTokens(AppState.currentPrompt + AppState.responses.claude.content),
+        AppState.responses.gemini.tokens
+      );
+
+      const total = perplexityCost + claudeCost + geminiCost;
+
+      document.getElementById('costPerplexity').textContent = `$${perplexityCost.toFixed(4)}`;
+      document.getElementById('costClaude').textContent = `$${claudeCost.toFixed(4)}`;
+      document.getElementById('costGemini').textContent = `$${geminiCost.toFixed(4)}`;
+      document.getElementById('costTotal').textContent = `$${total.toFixed(4)}`;
+
+      if (total > 0) {
+        document.getElementById('costPanel').style.display = 'block';
+      }
+    }
+
+    /**
+     * Safe API call with retry logic
+     */
+    async function safeApiCall(apiFunction, ...args) {
+      const maxRetries = 3;
+      let lastError;
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          return await apiFunction(...args);
+        } catch (error) {
+          lastError = error;
+
+          // Rate limiting - exponential backoff
+          if (error.status === 429) {
+            const backoff = Math.pow(2, attempt) * 1000;
+            await new Promise(r => setTimeout(r, backoff));
+            continue;
+          }
+
+          // Invalid API key
+          if (error.status === 401 || error.status === 403) {
+            throw new Error('Invalid API key. Please check your configuration.');
+          }
+
+          // Other errors - don't retry
+          throw error;
+        }
+      }
+
+      throw lastError;
+    }
+
+    // ===== API CALL FUNCTIONS =====
+
+    /**
+     * Call Perplexity API
+     */
+    async function callPerplexity(prompt, options = {}) {
+      const {
+        model = 'sonar-pro',
+        searchMode = 'high',
+        temperature = 0.2,
+        maxTokens = 4096
+      } = options;
+
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${AppState.apiKeys.perplexity}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: temperature,
+          max_tokens: maxTokens,
+          web_search_options: {
+            search_context_size: searchMode
+          },
+          return_citations: true
+        })
+      });
+
+      if (!response.ok) {
+        const error = new Error(`Perplexity API error: ${response.statusText}`);
+        error.status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      const citations = data.citations || [];
+      const content = data.choices?.[0]?.message?.content || '';
+
+      return { content, citations, raw: data };
+    }
+
+    /**
+     * Call Claude API
+     */
+    async function callClaude(prompt, context, options = {}) {
+      const {
+        model = 'claude-sonnet-4-5',
+        maxTokens = 8192,
+        temperature = 0.7,
+        systemPrompt = null
+      } = options;
+
+      const system = systemPrompt || (context
+        ? `You have access to the following research context with citations:\n\n${context}\n\nUse this to inform your response. Reference sources where appropriate.`
+        : 'You are a helpful assistant with expertise in analysis and reasoning.');
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': AppState.apiKeys.claude,
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: maxTokens,
+          temperature: temperature,
+          system: system,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        const error = new Error(`Claude API error: ${response.statusText}`);
+        error.status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      const content = data.content?.[0]?.text || '';
+
+      return { content, raw: data };
+    }
+
+    /**
+     * Call Gemini API
+     */
+    async function callGemini(prompt, claudeResponse, options = {}) {
+      const {
+        model = 'gemini-3-flash-preview',
+        temperature = 0.9,
+        maxTokens = 4096
+      } = options;
+
+      const synthesisPrompt = claudeResponse
+        ? `You are a creative synthesizer. Given this analysis:\n\n---\n${claudeResponse}\n---\n\nProvide:\n1. Alternative perspectives or contrarian views\n2. Unexpected connections or analogies\n3. Creative extensions or applications\n4. Potential blind spots in the analysis\n\nOriginal query: ${prompt}`
+        : prompt;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${AppState.apiKeys.gemini}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: synthesisPrompt }] }],
+            generationConfig: {
+              temperature: temperature,
+              maxOutputTokens: maxTokens
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = new Error(`Gemini API error: ${response.statusText}`);
+        error.status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+      return { content, raw: data };
+    }
+
+    // ===== UI UPDATE FUNCTIONS =====
+
+    /**
+     * Show loading state for a model
+     */
+    function showLoading(model) {
+      const content = document.getElementById(`${model}Content`);
+      content.className = 'response-content loading';
+      content.innerHTML = '<div class="spinner"></div>';
+    }
+
+    /**
+     * Show error state for a model
+     */
+    function showError(model, errorMessage) {
+      const content = document.getElementById(`${model}Content`);
+      content.className = 'response-content';
+      content.innerHTML = `<div class="error-message">${errorMessage}</div>`;
+    }
+
+    /**
+     * Display response for a model
+     */
+    function displayResponse(model, response, citations = []) {
+      const content = document.getElementById(`${model}Content`);
+      content.className = 'response-content';
+
+      // Format content with basic markdown support
+      let formattedContent = response
+        .replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+          const language = lang || 'javascript';
+          return `<pre><code class="language-${language}">${escapeHtml(code.trim())}</code></pre>`;
+        })
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+
+      content.innerHTML = formattedContent;
+
+      // Add citations if present
+      if (citations && citations.length > 0) {
+        const citationsHtml = `
+          <div class="citations">
+            <h4>Citations</h4>
+            ${citations.map((url, i) => `<a href="${url}" target="_blank">[${i + 1}] ${url}</a>`).join('')}
+          </div>
+        `;
+        content.innerHTML += citationsHtml;
+      }
+
+      // Apply syntax highlighting
+      content.querySelectorAll('pre code').forEach(block => {
+        Prism.highlightElement(block);
+      });
+
+      // Update token count
+      const tokens = estimateTokens(response);
+      AppState.responses[model].tokens = tokens;
+      document.getElementById(`${model}Tokens`).innerHTML = `
+        <span>●</span>
+        <span>${formatNumber(tokens)} tokens</span>
+      `;
+
+      updateCostDisplay();
+    }
+
+    /**
+     * Escape HTML for safe display
+     */
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    /**
+     * Render history list
+     */
+    function renderHistory() {
+      const historyList = document.getElementById('historyList');
+
+      if (AppState.history.length === 0) {
+        historyList.innerHTML = '<div class="empty-history">No history yet. Run a pipeline to get started.</div>';
+        return;
+      }
+
+      historyList.innerHTML = AppState.history.map((item, index) => `
+        <div class="history-item" data-index="${index}">
+          <div class="history-item-prompt">${escapeHtml(item.prompt.substring(0, 80))}${item.prompt.length > 80 ? '...' : ''}</div>
+          <div class="history-item-meta">
+            <span>${new Date(item.timestamp).toLocaleString()}</span>
+            <span>${item.mode}</span>
+          </div>
+        </div>
+      `).join('');
+
+      // Add click handlers
+      document.querySelectorAll('.history-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const index = parseInt(item.dataset.index);
+          loadHistoryItem(index);
+        });
+      });
+    }
+
+    /**
+     * Load a history item
+     */
+    function loadHistoryItem(index) {
+      const item = AppState.history[index];
+      if (!item) return;
+
+      document.getElementById('mainInput').value = item.prompt;
+
+      if (item.responses.perplexity) {
+        AppState.responses.perplexity = item.responses.perplexity;
+        displayResponse('perplexity', item.responses.perplexity.content, item.responses.perplexity.citations);
+      }
+
+      if (item.responses.claude) {
+        AppState.responses.claude = item.responses.claude;
+        displayResponse('claude', item.responses.claude.content);
+      }
+
+      if (item.responses.gemini) {
+        AppState.responses.gemini = item.responses.gemini;
+        displayResponse('gemini', item.responses.gemini.content);
+      }
+
+      updateCostDisplay();
+    }
+
+    // ===== WORKFLOW EXECUTION =====
+
+    /**
+     * Run sequential workflow
+     */
+    async function runSequentialWorkflow(prompt) {
+      const enableResearch = document.getElementById('enableResearch').checked;
+
+      try {
+        // Step 1: Perplexity (if enabled)
+        let perplexityContext = '';
+        if (enableResearch) {
+          showLoading('perplexity');
+          const perplexityResult = await safeApiCall(
+            callPerplexity,
+            prompt,
+            {
+              model: document.getElementById('perplexityModel').value,
+              searchMode: document.getElementById('perplexitySearchMode').value,
+              temperature: parseFloat(document.getElementById('perplexityTemp').value),
+              maxTokens: parseInt(document.getElementById('perplexityTokens').value)
+            }
+          );
+
+          AppState.responses.perplexity.content = perplexityResult.content;
+          AppState.responses.perplexity.citations = perplexityResult.citations;
+          displayResponse('perplexity', perplexityResult.content, perplexityResult.citations);
+
+          perplexityContext = perplexityResult.content;
+          if (perplexityResult.citations.length > 0) {
+            perplexityContext += '\n\nSources:\n' + perplexityResult.citations.map((url, i) => `[${i + 1}] ${url}`).join('\n');
+          }
+        }
+
+        // Step 2: Claude
+        showLoading('claude');
+        const systemPrompt = document.getElementById('systemPrompt').value || null;
+        const claudeResult = await safeApiCall(
+          callClaude,
+          prompt,
+          perplexityContext,
+          {
+            model: document.getElementById('claudeModel').value,
+            temperature: parseFloat(document.getElementById('claudeTemp').value),
+            maxTokens: parseInt(document.getElementById('claudeTokens').value),
+            systemPrompt: systemPrompt
+          }
+        );
+
+        AppState.responses.claude.content = claudeResult.content;
+        displayResponse('claude', claudeResult.content);
+
+        // Step 3: Gemini
+        showLoading('gemini');
+        const geminiResult = await safeApiCall(
+          callGemini,
+          prompt,
+          claudeResult.content,
+          {
+            model: document.getElementById('geminiModel').value,
+            temperature: parseFloat(document.getElementById('geminiTemp').value),
+            maxTokens: parseInt(document.getElementById('geminiTokens').value)
+          }
+        );
+
+        AppState.responses.gemini.content = geminiResult.content;
+        displayResponse('gemini', geminiResult.content);
+
+      } catch (error) {
+        console.error('Workflow error:', error);
+        alert(`Error: ${error.message}`);
+      }
+    }
+
+    /**
+     * Run parallel workflow
+     */
+    async function runParallelWorkflow(prompt) {
+      const enableResearch = document.getElementById('enableResearch').checked;
+      const systemPrompt = document.getElementById('systemPrompt').value || null;
+
+      const calls = [];
+
+      // Perplexity
+      if (enableResearch) {
+        showLoading('perplexity');
+        calls.push(
+          safeApiCall(
+            callPerplexity,
+            prompt,
+            {
+              model: document.getElementById('perplexityModel').value,
+              searchMode: document.getElementById('perplexitySearchMode').value,
+              temperature: parseFloat(document.getElementById('perplexityTemp').value),
+              maxTokens: parseInt(document.getElementById('perplexityTokens').value)
+            }
+          ).then(result => {
+            AppState.responses.perplexity.content = result.content;
+            AppState.responses.perplexity.citations = result.citations;
+            displayResponse('perplexity', result.content, result.citations);
+          }).catch(error => {
+            showError('perplexity', error.message);
+          })
+        );
+      }
+
+      // Claude
+      showLoading('claude');
+      calls.push(
+        safeApiCall(
+          callClaude,
+          prompt,
+          '',
+          {
+            model: document.getElementById('claudeModel').value,
+            temperature: parseFloat(document.getElementById('claudeTemp').value),
+            maxTokens: parseInt(document.getElementById('claudeTokens').value),
+            systemPrompt: systemPrompt
+          }
+        ).then(result => {
+          AppState.responses.claude.content = result.content;
+          displayResponse('claude', result.content);
+        }).catch(error => {
+          showError('claude', error.message);
+        })
+      );
+
+      // Gemini
+      showLoading('gemini');
+      calls.push(
+        safeApiCall(
+          callGemini,
+          prompt,
+          '',
+          {
+            model: document.getElementById('geminiModel').value,
+            temperature: parseFloat(document.getElementById('geminiTemp').value),
+            maxTokens: parseInt(document.getElementById('geminiTokens').value)
+          }
+        ).then(result => {
+          AppState.responses.gemini.content = result.content;
+          displayResponse('gemini', result.content);
+        }).catch(error => {
+          showError('gemini', error.message);
+        })
+      );
+
+      await Promise.all(calls);
+    }
+
+    /**
+     * Setup manual mode
+     */
+    function setupManualMode() {
+      // Show run buttons for each model
+      document.getElementById('runPerplexity').style.display = 'inline-flex';
+      document.getElementById('runClaude').style.display = 'inline-flex';
+      document.getElementById('runGemini').style.display = 'inline-flex';
+    }
+
+    /**
+     * Cleanup manual mode
+     */
+    function cleanupManualMode() {
+      // Hide run buttons
+      document.getElementById('runPerplexity').style.display = 'none';
+      document.getElementById('runClaude').style.display = 'none';
+      document.getElementById('runGemini').style.display = 'none';
+    }
+
+    // ===== EVENT HANDLERS =====
+
+    /**
+     * Initialize event listeners
+     */
+    function initEventListeners() {
+      // Workflow mode toggle
+      document.querySelectorAll('.workflow-toggle button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.workflow-toggle button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          AppState.workflowMode = btn.dataset.mode;
+
+          if (AppState.workflowMode === 'manual') {
+            setupManualMode();
+          } else {
+            cleanupManualMode();
+          }
+        });
+      });
+
+      // Theme toggle
+      document.getElementById('themeToggle').addEventListener('click', () => {
+        document.body.classList.toggle('light-theme');
+        const icon = document.getElementById('themeIcon');
+        icon.textContent = document.body.classList.contains('light-theme') ? '☀️' : '🌙';
+        localStorage.setItem('theme', document.body.classList.contains('light-theme') ? 'light' : 'dark');
+      });
+
+      // Settings modal
+      document.getElementById('settingsBtn').addEventListener('click', () => {
+        document.getElementById('perplexityApiKey').value = AppState.apiKeys.perplexity;
+        document.getElementById('claudeApiKey').value = AppState.apiKeys.claude;
+        document.getElementById('geminiApiKey').value = AppState.apiKeys.gemini;
+        document.getElementById('settingsModal').classList.remove('hidden');
+      });
+
+      document.getElementById('closeSettings').addEventListener('click', () => {
+        document.getElementById('settingsModal').classList.add('hidden');
+      });
+
+      document.getElementById('cancelSettings').addEventListener('click', () => {
+        document.getElementById('settingsModal').classList.add('hidden');
+      });
+
+      document.getElementById('saveSettings').addEventListener('click', () => {
+        AppState.apiKeys.perplexity = document.getElementById('perplexityApiKey').value;
+        AppState.apiKeys.claude = document.getElementById('claudeApiKey').value;
+        AppState.apiKeys.gemini = document.getElementById('geminiApiKey').value;
+        saveApiKeys();
+        document.getElementById('settingsModal').classList.add('hidden');
+        alert('API keys saved successfully!');
+      });
+
+      // Config panel toggle
+      document.getElementById('configToggle').addEventListener('click', () => {
+        const content = document.getElementById('configContent');
+        const arrow = document.getElementById('configArrow');
+        content.classList.toggle('collapsed');
+        arrow.textContent = content.classList.contains('collapsed') ? '▶' : '▼';
+      });
+
+      // Template select
+      document.getElementById('templateSelect').addEventListener('change', (e) => {
+        const template = TEMPLATES[e.target.value];
+        if (template) {
+          document.getElementById('systemPrompt').value = template.systemPrompt;
+          document.getElementById('perplexityModel').value = template.perplexityModel;
+          document.getElementById('perplexitySearchMode').value = template.searchMode;
+        }
+      });
+
+      // Run pipeline
+      document.getElementById('runPipeline').addEventListener('click', async () => {
+        const prompt = document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('Please enter a prompt first.');
+          return;
+        }
+
+        // Check API keys
+        if (!AppState.apiKeys.perplexity && document.getElementById('enableResearch').checked) {
+          alert('Please configure your Perplexity API key in settings.');
+          return;
+        }
+        if (!AppState.apiKeys.claude) {
+          alert('Please configure your Claude API key in settings.');
+          return;
+        }
+        if (!AppState.apiKeys.gemini) {
+          alert('Please configure your Gemini API key in settings.');
+          return;
+        }
+
+        AppState.currentPrompt = prompt;
+
+        // Disable button during execution
+        const btn = document.getElementById('runPipeline');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span><span>Running...</span>';
+
+        try {
+          if (AppState.workflowMode === 'sequential') {
+            await runSequentialWorkflow(prompt);
+          } else if (AppState.workflowMode === 'parallel') {
+            await runParallelWorkflow(prompt);
+          }
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<span>▶️</span><span>Run Pipeline</span>';
+        }
+      });
+
+      // Clear all
+      document.getElementById('clearAll').addEventListener('click', () => {
+        document.getElementById('mainInput').value = '';
+        document.getElementById('perplexityContent').className = 'response-content empty';
+        document.getElementById('perplexityContent').textContent = 'Awaiting research request...';
+        document.getElementById('claudeContent').className = 'response-content empty';
+        document.getElementById('claudeContent').textContent = 'Awaiting analysis request...';
+        document.getElementById('geminiContent').className = 'response-content empty';
+        document.getElementById('geminiContent').textContent = 'Awaiting synthesis request...';
+
+        AppState.responses = {
+          perplexity: { content: '', citations: [], tokens: 0 },
+          claude: { content: '', tokens: 0 },
+          gemini: { content: '', tokens: 0 }
+        };
+
+        document.getElementById('costPanel').style.display = 'none';
+      });
+
+      // Save to history
+      document.getElementById('saveToHistory').addEventListener('click', () => {
+        const prompt = document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('No prompt to save.');
+          return;
+        }
+
+        AppState.history.unshift({
+          prompt: prompt,
+          mode: AppState.workflowMode,
+          timestamp: Date.now(),
+          responses: JSON.parse(JSON.stringify(AppState.responses))
+        });
+
+        // Limit history to 50 items
+        if (AppState.history.length > 50) {
+          AppState.history = AppState.history.slice(0, 50);
+        }
+
+        saveHistory();
+        renderHistory();
+        alert('Saved to history!');
+      });
+
+      // History sidebar toggle
+      document.getElementById('toggleHistory').addEventListener('click', () => {
+        document.getElementById('historySidebar').classList.toggle('collapsed');
+      });
+
+      // Clear history
+      document.getElementById('clearHistory').addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all history?')) {
+          AppState.history = [];
+          saveHistory();
+          renderHistory();
+        }
+      });
+
+      // Copy buttons
+      document.getElementById('copyPerplexity').addEventListener('click', () => {
+        navigator.clipboard.writeText(AppState.responses.perplexity.content);
+        alert('Copied to clipboard!');
+      });
+
+      document.getElementById('copyClaude').addEventListener('click', () => {
+        navigator.clipboard.writeText(AppState.responses.claude.content);
+        alert('Copied to clipboard!');
+      });
+
+      document.getElementById('copyGemini').addEventListener('click', () => {
+        navigator.clipboard.writeText(AppState.responses.gemini.content);
+        alert('Copied to clipboard!');
+      });
+
+      // Feed forward buttons
+      document.getElementById('feedPerplexity').addEventListener('click', () => {
+        document.getElementById('mainInput').value = AppState.responses.perplexity.content;
+      });
+
+      document.getElementById('feedClaude').addEventListener('click', () => {
+        document.getElementById('mainInput').value = AppState.responses.claude.content;
+      });
+
+      // Regenerate buttons
+      document.getElementById('regeneratePerplexity').addEventListener('click', async () => {
+        const prompt = AppState.currentPrompt || document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('No prompt available for regeneration.');
+          return;
+        }
+
+        showLoading('perplexity');
+        try {
+          const result = await safeApiCall(
+            callPerplexity,
+            prompt,
+            {
+              model: document.getElementById('perplexityModel').value,
+              searchMode: document.getElementById('perplexitySearchMode').value,
+              temperature: parseFloat(document.getElementById('perplexityTemp').value),
+              maxTokens: parseInt(document.getElementById('perplexityTokens').value)
+            }
+          );
+
+          AppState.responses.perplexity.content = result.content;
+          AppState.responses.perplexity.citations = result.citations;
+          displayResponse('perplexity', result.content, result.citations);
+        } catch (error) {
+          showError('perplexity', error.message);
+        }
+      });
+
+      document.getElementById('regenerateClaude').addEventListener('click', async () => {
+        const prompt = AppState.currentPrompt || document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('No prompt available for regeneration.');
+          return;
+        }
+
+        showLoading('claude');
+        try {
+          const systemPrompt = document.getElementById('systemPrompt').value || null;
+          const context = AppState.responses.perplexity.content || '';
+          const result = await safeApiCall(
+            callClaude,
+            prompt,
+            context,
+            {
+              model: document.getElementById('claudeModel').value,
+              temperature: parseFloat(document.getElementById('claudeTemp').value),
+              maxTokens: parseInt(document.getElementById('claudeTokens').value),
+              systemPrompt: systemPrompt
+            }
+          );
+
+          AppState.responses.claude.content = result.content;
+          displayResponse('claude', result.content);
+        } catch (error) {
+          showError('claude', error.message);
+        }
+      });
+
+      document.getElementById('regenerateGemini').addEventListener('click', async () => {
+        const prompt = AppState.currentPrompt || document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('No prompt available for regeneration.');
+          return;
+        }
+
+        showLoading('gemini');
+        try {
+          const claudeResponse = AppState.responses.claude.content || '';
+          const result = await safeApiCall(
+            callGemini,
+            prompt,
+            claudeResponse,
+            {
+              model: document.getElementById('geminiModel').value,
+              temperature: parseFloat(document.getElementById('geminiTemp').value),
+              maxTokens: parseInt(document.getElementById('geminiTokens').value)
+            }
+          );
+
+          AppState.responses.gemini.content = result.content;
+          displayResponse('gemini', result.content);
+        } catch (error) {
+          showError('gemini', error.message);
+        }
+      });
+
+      // Manual mode run buttons
+      document.getElementById('runPerplexity').addEventListener('click', async () => {
+        const prompt = document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('Please enter a prompt first.');
+          return;
+        }
+
+        showLoading('perplexity');
+        try {
+          const result = await safeApiCall(
+            callPerplexity,
+            prompt,
+            {
+              model: document.getElementById('perplexityModel').value,
+              searchMode: document.getElementById('perplexitySearchMode').value,
+              temperature: parseFloat(document.getElementById('perplexityTemp').value),
+              maxTokens: parseInt(document.getElementById('perplexityTokens').value)
+            }
+          );
+
+          AppState.responses.perplexity.content = result.content;
+          AppState.responses.perplexity.citations = result.citations;
+          displayResponse('perplexity', result.content, result.citations);
+        } catch (error) {
+          showError('perplexity', error.message);
+        }
+      });
+
+      document.getElementById('runClaude').addEventListener('click', async () => {
+        const prompt = document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('Please enter a prompt first.');
+          return;
+        }
+
+        showLoading('claude');
+        try {
+          const systemPrompt = document.getElementById('systemPrompt').value || null;
+          const context = AppState.responses.perplexity.content || '';
+          const result = await safeApiCall(
+            callClaude,
+            prompt,
+            context,
+            {
+              model: document.getElementById('claudeModel').value,
+              temperature: parseFloat(document.getElementById('claudeTemp').value),
+              maxTokens: parseInt(document.getElementById('claudeTokens').value),
+              systemPrompt: systemPrompt
+            }
+          );
+
+          AppState.responses.claude.content = result.content;
+          displayResponse('claude', result.content);
+        } catch (error) {
+          showError('claude', error.message);
+        }
+      });
+
+      document.getElementById('runGemini').addEventListener('click', async () => {
+        const prompt = document.getElementById('mainInput').value.trim();
+        if (!prompt) {
+          alert('Please enter a prompt first.');
+          return;
+        }
+
+        showLoading('gemini');
+        try {
+          const claudeResponse = AppState.responses.claude.content || '';
+          const result = await safeApiCall(
+            callGemini,
+            prompt,
+            claudeResponse,
+            {
+              model: document.getElementById('geminiModel').value,
+              temperature: parseFloat(document.getElementById('geminiTemp').value),
+              maxTokens: parseInt(document.getElementById('geminiTokens').value)
+            }
+          );
+
+          AppState.responses.gemini.content = result.content;
+          displayResponse('gemini', result.content);
+        } catch (error) {
+          showError('gemini', error.message);
+        }
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        // Cmd/Ctrl + Enter to run
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault();
+          document.getElementById('runPipeline').click();
+        }
+
+        // Escape to clear
+        if (e.key === 'Escape') {
+          document.getElementById('clearAll').click();
+        }
+
+        // ? to toggle shortcuts help
+        if (e.key === '?') {
+          const info = document.getElementById('shortcutsInfo');
+          info.classList.toggle('visible');
+        }
+      });
+    }
+
+    // ===== INITIALIZATION =====
+    function init() {
+      // Load saved data
+      loadApiKeys();
+      loadHistory();
+
+      // Load theme preference
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        document.getElementById('themeIcon').textContent = '☀️';
+      }
+
+      // Initialize event listeners
+      initEventListeners();
+
+      // Show shortcuts info briefly on load
+      const info = document.getElementById('shortcutsInfo');
+      info.classList.add('visible');
+      setTimeout(() => {
+        info.classList.remove('visible');
+      }, 5000);
+
+      console.log('Multi-Agent Playground initialized!');
+    }
+
+    // Start the application when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+
+</body>
+</html>
