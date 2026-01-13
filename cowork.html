@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced AI Console - Sonar & Cowork</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .console-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            height: calc(100vh - 4rem);
+        }
+        @media (min-width: 1024px) {
+            .console-container {
+                grid-template-columns: 2.2fr 1fr;
+            }
+        }
+        .glass-pane {
+            background: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover:not(:disabled) { background-color: #4338ca; }
+        .btn-primary:disabled { background-color: #3730a3; cursor: not-allowed; opacity: 0.7; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        .btn-secondary:hover:not(:disabled) { background-color: #374151; }
+        .btn-secondary:disabled { background-color: #374151; cursor: not-allowed; opacity: 0.6; }
+        .btn-success { background-color: #059669; color: white; }
+        .btn-success:hover:not(:disabled) { background-color: #047857; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-danger:hover:not(:disabled) { background-color: #b91c1c; }
+        .btn-icon { background-color: #374151; color: #d1d5db; padding: 0.4rem; }
+        .btn-icon:hover { background-color: #4b5563; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .mode-toggle {
+            background: #1f2937;
+            border-radius: 0.5rem;
+            padding: 0.25rem;
+            display: inline-flex;
+            gap: 0.25rem;
+        }
+        .mode-btn {
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .mode-btn.active {
+            background: #4f46e5;
+            color: white;
+        }
+        .mode-btn:not(.active) {
+            color: #9ca3af;
+        }
+        .mode-btn:not(.active):hover {
+            background: #374151;
+            color: #d1d5db;
+        }
+        .task-item {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s;
+        }
+        .task-item:hover {
+            border-color: #4b5563;
+        }
+        .task-item.active {
+            border-color: #4f46e5;
+            background: rgba(79, 70, 229, 0.1);
+        }
+        .task-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-pending { background: #374151; color: #9ca3af; }
+        .status-planning { background: #1e40af; color: #93c5fd; }
+        .status-executing { background: #7c3aed; color: #c4b5fd; }
+        .status-completed { background: #059669; color: #6ee7b7; }
+        .status-failed { background: #dc2626; color: #fca5a5; }
+        .status-paused { background: #d97706; color: #fcd34d; }
+        .progress-bar {
+            height: 4px;
+            background: #374151;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            transition: width 0.3s;
+        }
+        .file-tree-item {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .file-tree-item:hover {
+            background: #374151;
+        }
+        .confirmation-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="p-4 sm:p-6">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-bold text-white">Advanced AI Console</h1>
+                    <p class="text-gray-400 mt-2">Sonar prompt engineering & Cowork agentic assistant</p>
+                </div>
+                <div class="mode-toggle">
+                    <button class="mode-btn active" data-mode="sonar">
+                        🔍 Sonar Looping
+                    </button>
+                    <button class="mode-btn" data-mode="cowork">
+                        🤖 Cowork Agent
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sonar Mode (existing functionality) -->
+        <div id="sonar-mode" class="console-mode">
+            <div class="console-container">
+                <!-- Sonar content will be injected here from existing index.html -->
+                <div class="glass-pane p-6">
+                    <h2 class="text-xl font-semibold text-white mb-4">Sonar Configuration</h2>
+                    <p class="text-gray-400">Loading Sonar interface...</p>
+                    <p class="text-sm text-gray-500 mt-2">For the full Sonar experience, open <a href="index.html" class="text-indigo-400 hover:underline">index.html</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cowork Mode (new agentic functionality) -->
+        <div id="cowork-mode" class="console-mode hidden">
+            <div class="console-container">
+                <!-- Left Panel: Configuration, Task Queue, and Activity -->
+                <div class="glass-pane p-6 flex flex-col">
+                    <!-- API Configuration -->
+                    <h2 class="text-xl font-semibold text-white mb-4">Configuration</h2>
+
+                    <div class="mb-4">
+                        <label for="claude-api-key" class="block text-sm font-medium text-red-400 mb-1">Claude API Key (Required)</label>
+                        <input type="password" id="claude-api-key" placeholder="sk-ant-..." class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <p class="text-xs text-gray-500 mt-1">
+                            Get your API key from <a href="https://console.anthropic.com" target="_blank" class="text-indigo-400 hover:underline">Anthropic Console</a>.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="workspace-btn" class="block text-sm font-medium text-gray-300 mb-1">Workspace</label>
+                            <button id="workspace-btn" class="btn btn-secondary w-full">
+                                📁 Select Folder
+                            </button>
+                            <p id="workspace-path" class="text-xs text-gray-400 mt-1">No folder selected</p>
+                        </div>
+                        <div>
+                            <label for="claude-model" class="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                            <select id="claude-model" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm">
+                                <option value="claude-sonnet-4-5-20250929" selected>Claude Sonnet 4.5 (Balanced)</option>
+                                <option value="claude-opus-4-5-20251101">Claude Opus 4.5 (Most Capable)</option>
+                                <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Fast)</option>
+                                <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Fastest)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4 mb-4">
+                        <button id="test-claude-btn" class="btn btn-secondary">Test Connection</button>
+                        <div id="connection-status" class="text-sm text-gray-400"></div>
+                    </div>
+
+                    <!-- Task Input -->
+                    <h2 class="text-xl font-semibold text-white mb-4 border-t border-gray-700 pt-4">Task Input</h2>
+                    <div class="mb-4">
+                        <textarea id="task-input" rows="3" placeholder="What would you like Claude to help with? (e.g., 'Organize my downloads by file type', 'Create a summary report from all markdown files')" class="w-full bg-gray-900 border border-gray-600 rounded-md p-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                    <div class="flex items-center space-x-4 mb-6">
+                        <button id="add-task-btn" class="btn btn-secondary">Add to Queue</button>
+                        <button id="execute-now-btn" class="btn btn-primary">Execute Now</button>
+                        <button id="execute-queue-btn" class="btn btn-success">Execute Queue</button>
+                        <button id="stop-agent-btn" class="btn btn-danger hidden">Stop</button>
+                    </div>
+
+                    <!-- Task Queue -->
+                    <h2 class="text-xl font-semibold text-white mb-4 border-t border-gray-700 pt-4">
+                        Task Queue
+                        <span id="queue-count" class="text-gray-400 text-sm font-normal">(0)</span>
+                    </h2>
+                    <div id="task-queue" class="flex-grow overflow-y-auto pr-2 mb-4 max-h-96">
+                        <p class="text-gray-500 text-sm">No tasks in queue</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="clear-completed-btn" class="btn btn-secondary btn-sm text-xs">Clear Completed</button>
+                        <button id="pause-all-btn" class="btn btn-secondary btn-sm text-xs">Pause All</button>
+                    </div>
+
+                    <!-- Agent Activity Log -->
+                    <h2 class="text-xl font-semibold text-white mb-4 border-t border-gray-700 pt-4 mt-4">Agent Activity</h2>
+                    <div id="activity-log" class="flex-grow overflow-y-auto pr-2 space-y-2 max-h-64">
+                        <p class="text-gray-500 text-sm">Agent idle</p>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Results and File Browser -->
+                <div class="glass-pane p-6 flex flex-col">
+                    <!-- Tab Navigation -->
+                    <div class="flex space-x-2 mb-4 border-b border-gray-700">
+                        <button class="tab-btn active px-4 py-2 text-sm font-medium border-b-2 border-indigo-500" data-tab="results">
+                            Results
+                        </button>
+                        <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-500" data-tab="files">
+                            Files
+                        </button>
+                        <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent hover:border-gray-500" data-tab="audit">
+                            Audit Log
+                        </button>
+                    </div>
+
+                    <!-- Results Tab -->
+                    <div id="results-tab" class="tab-content flex-grow">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-white">Task Results</h3>
+                            <div id="results-actions" class="space-x-2 hidden"></div>
+                        </div>
+                        <div id="results-container" class="bg-gray-900 rounded-md p-4 overflow-y-auto" style="max-height: calc(100vh - 20rem);">
+                            <p class="text-gray-500">Task results will appear here</p>
+                        </div>
+                    </div>
+
+                    <!-- Files Tab -->
+                    <div id="files-tab" class="tab-content flex-grow hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-white">Workspace Files</h3>
+                            <button id="refresh-files-btn" class="btn-icon text-sm">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                        <div id="file-browser" class="bg-gray-900 rounded-md p-4 overflow-y-auto" style="max-height: calc(100vh - 20rem);">
+                            <p class="text-gray-500">Select a workspace to browse files</p>
+                        </div>
+                    </div>
+
+                    <!-- Audit Log Tab -->
+                    <div id="audit-tab" class="tab-content flex-grow hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-white">Audit Log</h3>
+                            <div class="space-x-2">
+                                <button id="export-audit-btn" class="btn-icon text-xs">Export</button>
+                                <button id="clear-audit-btn" class="btn-icon text-xs">Clear</button>
+                            </div>
+                        </div>
+                        <div id="audit-log" class="bg-gray-900 rounded-md p-4 overflow-y-auto text-xs font-mono" style="max-height: calc(100vh - 20rem);">
+                            <p class="text-gray-500">Audit log is empty</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="confirmation-modal hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold text-white mb-4">Confirm Action</h3>
+            <div id="confirmation-details" class="mb-6 text-gray-300"></div>
+            <div class="flex justify-end space-x-3">
+                <button id="confirm-deny-btn" class="btn btn-secondary">Deny</button>
+                <button id="confirm-allow-btn" class="btn btn-primary">Allow</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load core modules -->
+    <script src="cowork-claude-api.js"></script>
+    <script src="cowork-filesystem.js"></script>
+    <script src="cowork-task-queue.js"></script>
+    <script src="cowork-agent.js"></script>
+    <script src="cowork-safety.js"></script>
+
+    <!-- Main application script -->
+    <script>
+        // Initialize components
+        let claudeAPI = null;
+        let fileSystem = new FileSystemManager();
+        let taskQueue = new TaskQueue();
+        let coworkAgent = null;
+        let safetyManager = new SafetyManager();
+
+        // DOM Elements
+        const modeButtons = document.querySelectorAll('.mode-btn');
+        const sonarMode = document.getElementById('sonar-mode');
+        const coworkMode = document.getElementById('cowork-mode');
+        const claudeApiKeyInput = document.getElementById('claude-api-key');
+        const claudeModelSelect = document.getElementById('claude-model');
+        const workspaceBtn = document.getElementById('workspace-btn');
+        const workspacePath = document.getElementById('workspace-path');
+        const testClaudeBtn = document.getElementById('test-claude-btn');
+        const connectionStatus = document.getElementById('connection-status');
+        const taskInput = document.getElementById('task-input');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const executeNowBtn = document.getElementById('execute-now-btn');
+        const executeQueueBtn = document.getElementById('execute-queue-btn');
+        const stopAgentBtn = document.getElementById('stop-agent-btn');
+        const taskQueueContainer = document.getElementById('task-queue');
+        const queueCount = document.getElementById('queue-count');
+        const activityLog = document.getElementById('activity-log');
+        const resultsContainer = document.getElementById('results-container');
+        const fileBrowser = document.getElementById('file-browser');
+        const auditLogContainer = document.getElementById('audit-log');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const confirmationDetails = document.getElementById('confirmation-details');
+        const confirmAllowBtn = document.getElementById('confirm-allow-btn');
+        const confirmDenyBtn = document.getElementById('confirm-deny-btn');
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const refreshFilesBtn = document.getElementById('refresh-files-btn');
+        const clearCompletedBtn = document.getElementById('clear-completed-btn');
+        const exportAuditBtn = document.getElementById('export-audit-btn');
+        const clearAuditBtn = document.getElementById('clear-audit-btn');
+
+        let currentConfirmationCallback = null;
+
+        // Mode Toggle
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                modeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                if (mode === 'sonar') {
+                    sonarMode.classList.remove('hidden');
+                    coworkMode.classList.add('hidden');
+                } else {
+                    sonarMode.classList.add('hidden');
+                    coworkMode.classList.remove('hidden');
+                }
+            });
+        });
+
+        // Tab Navigation
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                tabButtons.forEach(b => {
+                    b.classList.remove('active', 'border-indigo-500');
+                    b.classList.add('border-transparent');
+                });
+                btn.classList.add('active', 'border-indigo-500');
+                btn.classList.remove('border-transparent');
+
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`${tab}-tab`).classList.remove('hidden');
+            });
+        });
+
+        // Initialize Claude API
+        function initializeClaudeAPI() {
+            const apiKey = claudeApiKeyInput.value.trim();
+            if (!apiKey) {
+                connectionStatus.textContent = '❌ API key required';
+                connectionStatus.className = 'text-sm text-red-400';
+                return false;
+            }
+
+            const model = claudeModelSelect.value;
+            claudeAPI = new ClaudeAPI(apiKey, model);
+            coworkAgent = new CoworkAgent(claudeAPI, fileSystem, taskQueue);
+
+            // Set up event listeners
+            setupAgentEventListeners();
+
+            return true;
+        }
+
+        // Test Connection
+        testClaudeBtn.addEventListener('click', async () => {
+            if (!initializeClaudeAPI()) return;
+
+            connectionStatus.textContent = '⏳ Testing...';
+            connectionStatus.className = 'text-sm text-gray-400';
+            testClaudeBtn.disabled = true;
+
+            const result = await claudeAPI.testConnection();
+
+            if (result.success) {
+                connectionStatus.textContent = '✅ Connected';
+                connectionStatus.className = 'text-sm text-green-400';
+            } else {
+                connectionStatus.textContent = `❌ ${result.error}`;
+                connectionStatus.className = 'text-sm text-red-400';
+            }
+
+            testClaudeBtn.disabled = false;
+        });
+
+        // Workspace Selection
+        workspaceBtn.addEventListener('click', async () => {
+            if (!FileSystemManager.isSupported()) {
+                alert('File System Access API is not supported in this browser. Please use Chrome, Edge, or Opera.');
+                return;
+            }
+
+            const result = await fileSystem.requestDirectoryAccess();
+            if (result.success) {
+                workspacePath.textContent = `📁 ${result.name}`;
+                workspacePath.className = 'text-xs text-green-400 mt-1';
+                refreshFileTree();
+            } else if (result.error !== 'User cancelled directory selection') {
+                alert(`Error: ${result.error}`);
+            }
+        });
+
+        // Refresh File Tree
+        refreshFilesBtn.addEventListener('click', refreshFileTree);
+
+        async function refreshFileTree() {
+            if (!fileSystem.isWorkspaceReady()) {
+                fileBrowser.innerHTML = '<p class="text-gray-500">No workspace selected</p>';
+                return;
+            }
+
+            const result = await fileSystem.listDirectory('', true);
+            if (result.success) {
+                renderFileTree(result.files);
+            }
+        }
+
+        function renderFileTree(files) {
+            if (files.length === 0) {
+                fileBrowser.innerHTML = '<p class="text-gray-500">No files in workspace</p>';
+                return;
+            }
+
+            const tree = files.map(file => {
+                const icon = file.type === 'directory' ? '📁' : '📄';
+                const size = file.type === 'file' ? `(${formatBytes(file.size)})` : '';
+                return `<div class="file-tree-item">${icon} ${file.path} <span class="text-gray-500 text-xs">${size}</span></div>`;
+            }).join('');
+
+            fileBrowser.innerHTML = tree;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Task Management
+        addTaskBtn.addEventListener('click', () => {
+            const description = taskInput.value.trim();
+            if (!description) return;
+
+            const taskId = taskQueue.addTask(description);
+            taskInput.value = '';
+            updateTaskQueueUI();
+            logActivity(`➕ Task added: ${description.substring(0, 50)}...`);
+        });
+
+        executeNowBtn.addEventListener('click', async () => {
+            const description = taskInput.value.trim();
+            if (!description) {
+                alert('Please enter a task description');
+                return;
+            }
+
+            if (!initializeClaudeAPI()) {
+                alert('Please configure Claude API key');
+                return;
+            }
+
+            if (!fileSystem.isWorkspaceReady()) {
+                alert('Please select a workspace folder');
+                return;
+            }
+
+            const taskId = taskQueue.addTask(description, 10); // High priority
+            taskInput.value = '';
+            updateTaskQueueUI();
+
+            // Execute immediately
+            executeTask(taskId);
+        });
+
+        executeQueueBtn.addEventListener('click', async () => {
+            if (!initializeClaudeAPI()) {
+                alert('Please configure Claude API key');
+                return;
+            }
+
+            if (!fileSystem.isWorkspaceReady()) {
+                alert('Please select a workspace folder');
+                return;
+            }
+
+            executeQueueTasks();
+        });
+
+        stopAgentBtn.addEventListener('click', () => {
+            if (coworkAgent) {
+                coworkAgent.stop();
+                stopAgentBtn.classList.add('hidden');
+                logActivity('⏸ Agent stopped by user');
+            }
+        });
+
+        clearCompletedBtn.addEventListener('click', () => {
+            const count = taskQueue.clearCompleted();
+            updateTaskQueueUI();
+            if (count > 0) {
+                logActivity(`🗑 Cleared ${count} completed task(s)`);
+            }
+        });
+
+        // Execute a single task
+        async function executeTask(taskId) {
+            stopAgentBtn.classList.remove('hidden');
+            logActivity(`▶️ Executing task ${taskId}...`);
+
+            try {
+                const result = await coworkAgent.executeTask(taskId);
+
+                if (result.success) {
+                    logActivity(`✅ Task ${taskId} completed successfully`);
+                    displayResults(taskId, result);
+                } else {
+                    logActivity(`❌ Task ${taskId} failed: ${result.error}`);
+                }
+            } catch (error) {
+                logActivity(`❌ Task ${taskId} error: ${error.message}`);
+            } finally {
+                stopAgentBtn.classList.add('hidden');
+                updateTaskQueueUI();
+            }
+        }
+
+        // Execute queue tasks (parallel up to max)
+        async function executeQueueTasks() {
+            stopAgentBtn.classList.remove('hidden');
+            logActivity('🚀 Starting queue execution...');
+
+            const pendingTasks = taskQueue.getAllTasks('pending');
+
+            for (const task of pendingTasks) {
+                if (taskQueue.canExecute(task.id)) {
+                    executeTask(task.id);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Stagger starts
+                }
+            }
+        }
+
+        // Display task results
+        function displayResults(taskId, result) {
+            const task = taskQueue.getTask(taskId);
+
+            let html = `
+                <div class="mb-4">
+                    <h4 class="text-lg font-semibold text-white mb-2">Task: ${task.description}</h4>
+                    <p class="text-sm text-gray-400 mb-4">Completed in ${result.iterations} iteration(s)</p>
+
+                    <div class="bg-black/50 rounded p-4 mb-4">
+                        <h5 class="text-sm font-semibold text-gray-300 mb-2">Summary:</h5>
+                        <div class="text-gray-300 whitespace-pre-wrap">${escapeHtml(result.synthesis || 'No summary available')}</div>
+                    </div>
+            `;
+
+            if (result.results && result.results.length > 0) {
+                html += '<details class="mb-2"><summary class="cursor-pointer text-sm text-gray-400">Show execution details</summary>';
+                result.results.forEach((iter, idx) => {
+                    html += `<div class="mt-2 pl-4 border-l-2 border-gray-700">
+                        <p class="text-sm font-semibold text-gray-300">Iteration ${idx + 1}</p>
+                        ${iter.stepResults.map((step, sidx) => `
+                            <div class="text-xs text-gray-400 mt-1">
+                                Step ${sidx + 1}: ${step.success ? '✓' : '✗'} ${step.action} - ${step.message || step.error}
+                            </div>
+                        `).join('')}
+                    </div>`;
+                });
+                html += '</details>';
+            }
+
+            html += '</div>';
+
+            resultsContainer.innerHTML = html;
+        }
+
+        // Update task queue UI
+        function updateTaskQueueUI() {
+            const tasks = taskQueue.getAllTasks();
+            queueCount.textContent = `(${tasks.length})`;
+
+            if (tasks.length === 0) {
+                taskQueueContainer.innerHTML = '<p class="text-gray-500 text-sm">No tasks in queue</p>';
+                return;
+            }
+
+            const html = tasks.map(task => {
+                const statusClass = `status-${task.status}`;
+                const progress = task.totalSteps > 0
+                    ? `<div class="progress-bar"><div class="progress-fill" style="width: ${task.progress}%"></div></div>`
+                    : '';
+
+                return `
+                    <div class="task-item ${task.status === 'executing' ? 'active' : ''}" data-task-id="${task.id}">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex-grow">
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <span class="task-status ${statusClass}">${task.status}</span>
+                                    ${task.totalSteps > 0 ? `<span class="text-xs text-gray-500">${task.currentStep}/${task.totalSteps}</span>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-300">${escapeHtml(task.description.substring(0, 80))}${task.description.length > 80 ? '...' : ''}</p>
+                            </div>
+                            <div class="flex space-x-1">
+                                ${task.status === 'executing' ? `<button class="btn-icon text-xs" onclick="pauseTask('${task.id}')">⏸</button>` : ''}
+                                ${task.status === 'paused' ? `<button class="btn-icon text-xs" onclick="resumeTask('${task.id}')">▶️</button>` : ''}
+                                ${task.status === 'pending' ? `<button class="btn-icon text-xs" onclick="removeTask('${task.id}')">🗑</button>` : ''}
+                            </div>
+                        </div>
+                        ${progress}
+                    </div>
+                `;
+            }).join('');
+
+            taskQueueContainer.innerHTML = html;
+        }
+
+        // Task control functions
+        window.pauseTask = (taskId) => {
+            taskQueue.pauseTask(taskId);
+            updateTaskQueueUI();
+            logActivity(`⏸ Task ${taskId} paused`);
+        };
+
+        window.resumeTask = (taskId) => {
+            taskQueue.resumeTask(taskId);
+            updateTaskQueueUI();
+            executeTask(taskId);
+        };
+
+        window.removeTask = (taskId) => {
+            taskQueue.removeTask(taskId);
+            updateTaskQueueUI();
+            logActivity(`🗑 Task ${taskId} removed`);
+        };
+
+        // Activity logging
+        function logActivity(message) {
+            const entry = document.createElement('div');
+            entry.className = 'text-xs text-gray-300';
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+
+            if (activityLog.firstChild?.textContent?.includes('Agent idle')) {
+                activityLog.innerHTML = '';
+            }
+
+            activityLog.insertBefore(entry, activityLog.firstChild);
+
+            // Keep last 50 entries
+            while (activityLog.children.length > 50) {
+                activityLog.removeChild(activityLog.lastChild);
+            }
+        }
+
+        // Setup agent event listeners
+        function setupAgentEventListeners() {
+            if (!coworkAgent) return;
+
+            coworkAgent.on('planningStarted', (data) => {
+                logActivity(`🎯 Planning task: ${data.task.description.substring(0, 50)}...`);
+            });
+
+            coworkAgent.on('planningComplete', (data) => {
+                logActivity(`📋 Plan created with ${data.plan.steps.length} steps`);
+                updateTaskQueueUI();
+            });
+
+            coworkAgent.on('stepStarted', (data) => {
+                logActivity(`⚙️ Step ${data.stepNumber}/${data.total}: ${data.step.description}`);
+            });
+
+            coworkAgent.on('stepComplete', (data) => {
+                const icon = data.result.success ? '✓' : '✗';
+                logActivity(`${icon} Step ${data.stepNumber} ${data.result.success ? 'completed' : 'failed'}`);
+                updateTaskQueueUI();
+            });
+
+            coworkAgent.on('replanning', (data) => {
+                logActivity(`🔄 Replanning due to: ${data.reason}`);
+            });
+
+            coworkAgent.on('confirmationRequired', (data) => {
+                showConfirmationModal(data);
+            });
+        }
+
+        // Confirmation modal
+        function showConfirmationModal(data) {
+            const { step, callback } = data;
+
+            confirmationDetails.innerHTML = `
+                <p class="mb-2"><strong>Action:</strong> ${step.action}</p>
+                <p class="mb-2"><strong>Target:</strong> ${step.target}</p>
+                <p class="mb-2"><strong>Description:</strong> ${step.description}</p>
+                ${step.parameters ? `<p class="text-xs text-gray-400 mt-2">Parameters: ${JSON.stringify(step.parameters)}</p>` : ''}
+            `;
+
+            currentConfirmationCallback = callback;
+            confirmationModal.classList.remove('hidden');
+        }
+
+        confirmAllowBtn.addEventListener('click', () => {
+            if (currentConfirmationCallback) {
+                currentConfirmationCallback(true);
+                currentConfirmationCallback = null;
+            }
+            confirmationModal.classList.add('hidden');
+        });
+
+        confirmDenyBtn.addEventListener('click', () => {
+            if (currentConfirmationCallback) {
+                currentConfirmationCallback(false);
+                currentConfirmationCallback = null;
+            }
+            confirmationModal.classList.add('hidden');
+        });
+
+        // Audit log functions
+        exportAuditBtn.addEventListener('click', () => {
+            const log = safetyManager.exportAuditLog();
+            const blob = new Blob([log], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cowork-audit-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        clearAuditBtn.addEventListener('click', () => {
+            if (confirm('Clear audit log?')) {
+                safetyManager.clearAuditLog();
+                updateAuditLogUI();
+            }
+        });
+
+        function updateAuditLogUI() {
+            const log = safetyManager.getAuditLog();
+            if (log.length === 0) {
+                auditLogContainer.innerHTML = '<p class="text-gray-500">Audit log is empty</p>';
+                return;
+            }
+
+            const html = log.reverse().map(entry => {
+                return `<div class="mb-2 pb-2 border-b border-gray-800">
+                    <div class="text-gray-400">${entry.timestamp}</div>
+                    <div>${entry.operation || entry.action}: ${entry.success || entry.result}</div>
+                    ${entry.details ? `<div class="text-gray-500">${JSON.stringify(entry.details).substring(0, 100)}</div>` : ''}
+                </div>`;
+            }).join('');
+
+            auditLogContainer.innerHTML = html;
+        }
+
+        // Utility function
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Initialize
+        taskQueue.on('taskUpdated', updateTaskQueueUI);
+        taskQueue.on('taskAdded', updateTaskQueueUI);
+
+        // Periodic audit log refresh
+        setInterval(updateAuditLogUI, 5000);
+    </script>
+</body>
+</html>
