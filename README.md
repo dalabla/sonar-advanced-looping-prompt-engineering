@@ -16,7 +16,9 @@ Open `index.html` - Refine prompts iteratively using Perplexity's Sonar models w
 - Web-enhanced content generation
 
 ### Cowork Mode (Agentic Assistant)
-Open `cowork.html` - Let Claude autonomously work with your files through multi-step planning and execution.
+Open `cowork-standalone.html` - Let Claude autonomously work with your files through multi-step planning and execution.
+
+**Note:** Use `cowork-standalone.html` (recommended) for direct browser access, or `cowork.html` with a local server for development.
 
 **Use Cases:**
 - Organize files and folders
@@ -65,16 +67,22 @@ Open `cowork.html` - Let Claude autonomously work with your files through multi-
 ```
 project/
 ├── index.html                      # Sonar looping interface
-├── cowork.html                     # Cowork agent interface (integrated)
-├── cowork-claude-api.js           # Claude API integration
+├── cowork-standalone.html          # Cowork agent (single-file, recommended)
+├── cowork.html                     # Cowork agent (multi-file, for dev)
+├── cowork-claude-api.js           # Claude API integration module
 ├── cowork-filesystem.js           # File system access wrapper
 ├── cowork-task-queue.js           # Task management and scheduling
 ├── cowork-agent.js                # Main orchestration engine
 ├── cowork-safety.js               # Security and safety controls
+├── start-server.sh                # Local development server launcher
 ├── COWORK_IMPLEMENTATION_PLAN.md  # Technical documentation
 ├── COWORK_GUIDE.md                # User guide
 └── README.md                      # This file
 ```
+
+**For End Users:** Use `cowork-standalone.html` - it's a single file with everything embedded.
+
+**For Developers:** Use the multi-file version (`cowork.html` + modules) with a local server for easier debugging and modification.
 
 ## Key Concepts
 
@@ -107,11 +115,26 @@ Both modes leverage iterative refinement, but Sonar focuses on prompts while Cow
 
 ## Getting Started
 
-1. Clone this repository
+### Quick Start (No Installation)
+
+1. **Download** or clone this repository
 2. Choose your mode:
    - **Prompt Engineering**: Open `index.html`, add Perplexity API key
-   - **File Operations**: Open `cowork.html`, add Claude API key, select workspace
+   - **File Operations**: Open `cowork-standalone.html`, add Claude API key, select workspace
 3. Follow the in-app instructions
+
+### Development Setup (Multi-File Version)
+
+If you want to modify the code:
+
+```bash
+# Start local server
+./start-server.sh
+
+# Then open:
+# http://localhost:8000/cowork.html (Cowork Agent)
+# http://localhost:8000/index.html (Sonar Looping)
+```
 
 For detailed Cowork usage, see [COWORK_GUIDE.md](COWORK_GUIDE.md).
 
@@ -152,4 +175,4 @@ See repository license.
 
 ---
 
-**Ready to try it?** Open `cowork.html` for agentic file operations or `index.html` for prompt engineering!
+**Ready to try it?** Open `cowork-standalone.html` for agentic file operations or `index.html` for prompt engineering!
